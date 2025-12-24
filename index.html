@@ -7,7 +7,10 @@
   
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
@@ -68,6 +71,18 @@
                         </div>
                     </div>
 
+                    <div id="div-gi-diag" class="card mb-3 border-0 shadow-sm bg-white hidden">
+                        <div class="card-body py-3 border-start border-4 border-warning">
+                            <label class="fw-bold text-warning mb-2">GI Diagnosis</label>
+                            <select id="gi-diagnosis" class="form-select">
+                                <option value="" selected disabled>-- เลือก Diagnosis --</option>
+                                <option value="UGIB">UGIB</option>
+                                <option value="Other GI bleed">Other GI bleed</option>
+                                <option value="Non GI bleed">Non GI bleed</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="mb-3">
                         <label class="fw-bold small text-muted text-uppercase">Visit Type</label>
                         <div class="btn-group w-100">
@@ -81,23 +96,10 @@
                     <div id="mode-scan" class="mb-3">
                         <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
                         
-                        <input type="file" id="camInput" accept="image/*" capture="environment" class="hidden" onchange="processFile(this)">
-                        
-                        <input type="file" id="galInput" accept="image/*" class="hidden" onchange="processFile(this)">
-                        
-                        <div class="d-flex gap-2">
-                            <label for="camInput" class="btn btn-warning w-50 py-3 shadow-sm text-dark fw-bold">
-                                <i class="bi bi-camera-fill fs-4 d-block"></i> ถ่ายรูป
-                            </label>
-                            
-                            <label for="galInput" class="btn btn-outline-secondary w-50 py-3 shadow-sm fw-bold">
-                                <i class="bi bi-images fs-4 d-block"></i> อัลบั้ม
-                            </label>
+                        <div class="input-group mb-2">
+                            <input type="file" class="form-control" accept="image/*" id="nativeFileInput" onchange="processFile(this)">
                         </div>
-                        
-                        <div class="form-text text-muted mt-2 small text-center">
-                            * Android: กด "ถ่ายรูป" เพื่อเปิดกล้องโดยตรง
-                        </div>
+                        <div class="form-text text-muted mb-2 small">* กดเพื่อเลือก "กล้อง" หรือ "อัลบั้ม"</div>
 
                         <div class="text-center mt-2 position-relative">
                             <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
@@ -105,6 +107,10 @@
                         
                         <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
                             <i class="bi bi-magic"></i> ให้ AI อ่านชื่อ
+                        </button>
+                        
+                        <button type="button" onclick="openExternal()" class="btn btn-outline-secondary w-100 mt-3 btn-sm">
+                            <i class="bi bi-box-arrow-up-right"></i> เปิดใน Browser (หากกล้องค้าง)
                         </button>
                     </div>
 
@@ -161,7 +167,7 @@
                         <h1 class="display-4 fw-bold mb-0" id="chart-total">0</h1>
                     </div>
                 </div>
-                <div class="card mb-3 border-0 shadow-sm"><div class="card-body"><canvas id="barChart" style="max-height: 200px;"></canvas></div></div>
+                <div class="card mb-3 border-0 shadow-sm"><div class="card-body"><canvas id="barChart" style="max-height: 250px;"></canvas></div></div>
             </div>
 
         </div> 
@@ -177,7 +183,7 @@
 
   <script>
     // ************************************************
-    // ⚠️ แก้ URL และ LIFF ID
+    // ⚠️ อย่าลืมแก้ตรงนี้เป็น URL ของ Google Script ล่าสุด
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz8P4vW1tS1mfGMys4VwTWVWaV89kJZs9V9DNX3vcb_MzjKjvsSDfmwh2wlg1tgFHeS/exec'; 
     const LIFF_ID = '2008753162-pqFRi41y'; 
     // ************************************************
@@ -188,6 +194,9 @@
     let allDoctors = [];
     let base64String = "";
     let barChart = null;
+
+    // Register Chart Plugin
+    Chart.register(ChartDataLabels);
 
     window.onload = async function() {
       try {
@@ -210,7 +219,7 @@
                 document.getElementById('unauth-screen').classList.remove('hidden');
                 document.getElementById('show-uid').innerText = res.uid;
             }
-        }).catch(e => alert("Error: "+e));
+        }).catch(e => alert("Connection Error: "+e));
     }
 
     function startApp() {
@@ -221,14 +230,58 @@
         
         document.getElementById('header-doc-name').innerText = currentDoctor.name;
         
-        const container = document.getElementById('specialty-container'); container.innerHTML = "";
+        // Render Specialty Radio Buttons
+        const container = document.getElementById('specialty-container'); 
+        container.innerHTML = "";
+        
         currentDoctor.specialties.forEach((spec, i) => {
-            container.innerHTML += `<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="specialty" value="${spec.trim()}" ${i===0?'checked':''}><label class="form-check-label">${spec.trim()}</label></div>`;
+            // สร้าง Radio Button
+            const div = document.createElement('div');
+            div.className = "form-check form-check-inline";
+            
+            const input = document.createElement('input');
+            input.className = "form-check-input";
+            input.type = "radio";
+            input.name = "specialty";
+            input.value = spec.trim();
+            input.id = "spec-" + i;
+            if (i === 0) input.checked = true;
+
+            // เพิ่ม Event Listener เพื่อเช็คว่าเป็น GI หรือไม่
+            input.addEventListener('change', checkGI);
+
+            const label = document.createElement('label');
+            label.className = "form-check-label";
+            label.htmlFor = "spec-" + i;
+            label.innerText = spec.trim();
+
+            div.appendChild(input);
+            div.appendChild(label);
+            container.appendChild(div);
         });
+
+        // เช็คครั้งแรกตอนโหลด
+        checkGI();
 
         loadExistingPatients();
         loadAllDoctors();
         loadDashboard();
+    }
+
+    // ฟังก์ชันเช็คว่าเลือก GI หรือไม่
+    function checkGI() {
+        const selected = document.querySelector('input[name="specialty"]:checked');
+        const giDiv = document.getElementById('div-gi-diag');
+        const giSelect = document.getElementById('gi-diagnosis');
+        
+        if (selected && selected.value.toUpperCase() === 'GI') {
+            giDiv.classList.remove('hidden');
+            giSelect.required = true; // บังคับเลือก
+        } else {
+            giDiv.classList.add('hidden');
+            giSelect.value = ""; // ล้างค่า
+            giSelect.required = false; // ไม่บังคับ
+        }
     }
 
     // --- Image Processing ---
@@ -261,11 +314,9 @@
             };
             r.readAsDataURL(f);
         }
-        // Reset input เพื่อให้เลือกไฟล์เดิมซ้ำได้
-        input.value = '';
     }
 
-    // --- Helpers ---
+    // --- Tab Switching ---
     window.switchTab = function(tab) {
         document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -276,8 +327,13 @@
         window.scrollTo(0,0);
     }
     
-    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
+    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("คัดลอก UID แล้ว"); }
     
+    window.openExternal = function() {
+        if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } 
+        else { alert("คุณเปิด Browser อยู่แล้ว"); }
+    }
+
     window.toggleMode = function() {
         const type = document.querySelector('input[name="visitType"]:checked').value;
         if(type.includes('First')) { document.getElementById('mode-scan').classList.remove('hidden'); document.getElementById('mode-search').classList.add('hidden'); } 
@@ -328,10 +384,16 @@
         yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
     }
     function loadDashboard() { fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) rawDashboardData=d; }); }
+    
+    // Updated Dashboard with Stacked Bar & 3-Letter Months
     window.updateDash = function() {
-        const scope = document.getElementById('filter-scope').value; const year = parseInt(document.getElementById('filter-year').value);
-        const fDoc = document.getElementById('filter-doc').value; const fSpec = document.getElementById('filter-spec').value;
+        const scope = document.getElementById('filter-scope').value; 
+        const year = parseInt(document.getElementById('filter-year').value);
+        const fDoc = document.getElementById('filter-doc').value; 
+        const fSpec = document.getElementById('filter-spec').value;
+        
         document.getElementById('div-filter-doc').classList.toggle('hidden', scope !== 'all');
+        
         const filtered = rawDashboardData.filter(item => {
             const d = new Date(item.date);
             if (d.getFullYear() !== year) return false;
@@ -340,25 +402,94 @@
             if (fSpec !== 'all' && item.specialty.trim() !== fSpec) return false;
             return true;
         });
+        
         document.getElementById('chart-total').innerText = filtered.length;
-        let months = Array(12).fill(0); 
-        filtered.forEach(item => { months[new Date(item.date).getMonth()]++; });
-        const ctx1 = document.getElementById('barChart'); if(barChart) barChart.destroy();
-        barChart = new Chart(ctx1, { type: 'bar', data: { labels:['J','F','M','A','M','J','J','A','S','O','N','D'], datasets:[{label:'Cases', data:months, backgroundColor:'#0d6efd'}] } });
+        
+        // Prepare Stacked Data (Month x Type)
+        let firstVisitData = Array(12).fill(0);
+        let followUpData = Array(12).fill(0);
+        
+        filtered.forEach(item => {
+            const month = new Date(item.date).getMonth();
+            // เช็คว่าเป็น First หรือ Follow up
+            if (item.type && item.type.toLowerCase().includes('first')) {
+                firstVisitData[month]++;
+            } else {
+                followUpData[month]++;
+            }
+        });
+        
+        const ctx1 = document.getElementById('barChart');
+        if(barChart) barChart.destroy();
+        
+        barChart = new Chart(ctx1, {
+            type: 'bar',
+            data: {
+                labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], // 3 ตัวอักษร
+                datasets: [
+                    {
+                        label: 'First Visit',
+                        data: firstVisitData,
+                        backgroundColor: '#0d6efd', // น้ำเงินเข้ม
+                        stack: 'Stack 0'
+                    },
+                    {
+                        label: 'Follow Up',
+                        data: followUpData,
+                        backgroundColor: '#9ec5fe', // น้ำเงินอ่อน
+                        stack: 'Stack 0'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true }
+                },
+                plugins: {
+                    datalabels: { // โชว์ตัวเลขบนกราฟ
+                        color: 'white',
+                        font: { weight: 'bold' },
+                        display: function(context) {
+                            return context.dataset.data[context.dataIndex] > 0; // โชว์เฉพาะค่า > 0
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
     }
 
-    // Submit
+    // Submit Form
     document.getElementById('consult-form').onsubmit = function(e) {
         e.preventDefault();
         document.getElementById('loading').classList.remove('hidden');
+        
+        // ดึงค่า GI Diagnosis (ถ้ามี)
+        let diagnosisVal = "";
+        const giDiv = document.getElementById('div-gi-diag');
+        if (!giDiv.classList.contains('hidden')) {
+            diagnosisVal = document.getElementById('gi-diagnosis').value;
+        }
+
         const payload = {
             doctorName: currentDoctor.name,
             specialty: document.querySelector('input[name="specialty"]:checked').value,
             patientName: document.getElementById('p-name').value,
             hn: document.getElementById('p-hn').value,
-            visitType: document.querySelector('input[name="visitType"]:checked').value
+            visitType: document.querySelector('input[name="visitType"]:checked').value,
+            diagnosis: diagnosisVal // ส่งค่า Diagnosis ไปด้วย
         };
-        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกข้อมูลเรียบร้อย ✅"); location.reload(); });
+        
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})})
+        .then(r=>r.json()).then(()=>{ 
+            alert("บันทึกข้อมูลเรียบร้อย ✅"); 
+            location.reload(); 
+        });
     };
 
     window.scanImage = function() { 
