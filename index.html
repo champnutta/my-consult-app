@@ -14,19 +14,16 @@
     body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; padding-bottom: 80px; }
     .hidden { display: none !important; }
     
-    /* Loading & Auth Screens */
     .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     .unauth-box { text-align: center; padding: 40px 20px; background-color: #fff; border-radius: 15px; margin-top: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
     .uid-display { background: #f1f3f5; color: #495057; padding: 15px; font-family: monospace; word-break: break-all; margin: 20px 0; border: 1px dashed #ced4da; }
 
-    /* Layout */
     .header-bar { background: white; padding: 15px; border-bottom: 1px solid #eee; margin-bottom: 20px; border-radius: 0 0 15px 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
     .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #eaeaea; display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; }
     .nav-item { text-align: center; color: #adb5bd; width: 33%; cursor: pointer; padding-top: 8px; }
     .nav-item.active { color: #0d6efd; font-weight: bold; }
     .nav-item i { display: block; font-size: 1.4rem; margin-bottom: 2px; }
     
-    /* Search Results */
     .search-results { position: absolute; width: 100%; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .search-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
   </style>
@@ -44,7 +41,6 @@
       <div class="unauth-box">
         <h1 class="text-danger"><i class="bi bi-shield-lock"></i></h1>
         <h4>Access Denied</h4>
-        <p class="text-muted small">User ID นี้ยังไม่ได้ลงทะเบียน</p>
         <div class="uid-display" id="show-uid">...</div>
         <button onclick="copyUID()" class="btn btn-outline-primary w-100 mb-3">Copy UserID</button>
         <button onclick="location.reload()" class="btn btn-primary w-100 btn-lg">Refresh</button>
@@ -85,10 +81,23 @@
                     <div id="mode-scan" class="mb-3">
                         <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
                         
-                        <div class="input-group mb-2">
-                            <input type="file" class="form-control" accept="image/*" id="nativeFileInput" onchange="processFile(this)">
+                        <input type="file" id="camInput" accept="image/*" capture="environment" class="hidden" onchange="processFile(this)">
+                        
+                        <input type="file" id="galInput" accept="image/*" class="hidden" onchange="processFile(this)">
+                        
+                        <div class="d-flex gap-2">
+                            <label for="camInput" class="btn btn-warning w-50 py-3 shadow-sm text-dark fw-bold">
+                                <i class="bi bi-camera-fill fs-4 d-block"></i> ถ่ายรูป
+                            </label>
+                            
+                            <label for="galInput" class="btn btn-outline-secondary w-50 py-3 shadow-sm fw-bold">
+                                <i class="bi bi-images fs-4 d-block"></i> อัลบั้ม
+                            </label>
                         </div>
-                        <div class="form-text text-muted mb-2 small">* กดเพื่อเลือก "กล้อง" หรือ "อัลบั้ม"</div>
+                        
+                        <div class="form-text text-muted mt-2 small text-center">
+                            * Android: กด "ถ่ายรูป" เพื่อเปิดกล้องโดยตรง
+                        </div>
 
                         <div class="text-center mt-2 position-relative">
                             <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
@@ -96,10 +105,6 @@
                         
                         <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
                             <i class="bi bi-magic"></i> ให้ AI อ่านชื่อ
-                        </button>
-                        
-                        <button type="button" onclick="openExternal()" class="btn btn-outline-secondary w-100 mt-3 btn-sm">
-                            <i class="bi bi-box-arrow-up-right"></i> เปิดใน Browser (หากกล้องค้าง)
                         </button>
                     </div>
 
@@ -125,7 +130,8 @@
                     
                     <button type="submit" class="btn btn-primary w-100 btn-lg shadow fw-bold mb-5">บันทึกข้อมูล <i class="bi bi-save"></i></button>
                 </form>
-            </div> 
+            </div>
+
             <div id="tab-history" class="page-section hidden">
                 <h5 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> ประวัติการตรวจ</h5>
                 <div class="btn-group w-100 mb-3">
@@ -136,7 +142,6 @@
                 <div id="history-list" class="list-group shadow-sm border-0"></div>
                 <p id="no-history" class="text-center text-muted mt-5 hidden">ไม่พบข้อมูลย้อนหลัง</p>
             </div>
-
 
             <div id="tab-dashboard" class="page-section hidden">
                 <h5 class="fw-bold mb-3"><i class="bi bi-graph-up-arrow"></i> สรุปข้อมูล</h5>
@@ -150,7 +155,6 @@
                     </div>
                   </div>
                 </div>
-
                 <div class="card bg-primary text-white mb-3 shadow border-0">
                     <div class="card-body text-center p-4">
                         <h6 class="mb-0 text-white-50">เคสทั้งหมด</h6>
@@ -160,7 +164,10 @@
                 <div class="card mb-3 border-0 shadow-sm"><div class="card-body"><canvas id="barChart" style="max-height: 200px;"></canvas></div></div>
             </div>
 
-        </div> </div> </div>
+        </div> 
+    </div> 
+
+  </div>
 
   <div id="bottom-nav" class="bottom-nav hidden">
     <div class="nav-item active" id="nav-input" onclick="switchTab('input')"><i class="bi bi-pencil-square"></i><span>บันทึก</span></div>
@@ -170,7 +177,7 @@
 
   <script>
     // ************************************************
-    // ⚠️ อย่าลืมแก้ตรงนี้เป็น URL ของ Google Script ล่าสุด
+    // ⚠️ แก้ URL และ LIFF ID
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz8P4vW1tS1mfGMys4VwTWVWaV89kJZs9V9DNX3vcb_MzjKjvsSDfmwh2wlg1tgFHeS/exec'; 
     const LIFF_ID = '2008753162-pqFRi41y'; 
     // ************************************************
@@ -203,7 +210,7 @@
                 document.getElementById('unauth-screen').classList.remove('hidden');
                 document.getElementById('show-uid').innerText = res.uid;
             }
-        }).catch(e => alert("Connection Error: "+e));
+        }).catch(e => alert("Error: "+e));
     }
 
     function startApp() {
@@ -254,9 +261,11 @@
             };
             r.readAsDataURL(f);
         }
+        // Reset input เพื่อให้เลือกไฟล์เดิมซ้ำได้
+        input.value = '';
     }
 
-    // --- Tab Switching ---
+    // --- Helpers ---
     window.switchTab = function(tab) {
         document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -267,20 +276,15 @@
         window.scrollTo(0,0);
     }
     
-    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("คัดลอก UID แล้ว"); }
+    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
     
-    window.openExternal = function() {
-        if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } 
-        else { alert("คุณเปิด Browser อยู่แล้ว"); }
-    }
-
     window.toggleMode = function() {
         const type = document.querySelector('input[name="visitType"]:checked').value;
         if(type.includes('First')) { document.getElementById('mode-scan').classList.remove('hidden'); document.getElementById('mode-search').classList.add('hidden'); } 
         else { document.getElementById('mode-scan').classList.add('hidden'); document.getElementById('mode-search').classList.remove('hidden'); }
     }
 
-    // Data Functions
+    // Data Loaders
     function loadExistingPatients() { fetch(`${WEB_APP_URL}?action=getPatients&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) existingPatients=d; }); }
     function loadAllDoctors() { fetch(`${WEB_APP_URL}?action=getDoctors`).then(r=>r.json()).then(d=>{ allDoctors=d; initDashFilters(); }); }
 
