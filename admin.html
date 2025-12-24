@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  
+  <style>
+    body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; font-size: 0.9rem; }
+    .table-input { width: 60px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; padding: 2px; }
+    .w-col { background-color: #fff3cd !important; } /* สีเหลืองช่องกรอก */
+    .total-col { background-color: #d1e7dd !important; font-weight: bold; font-size: 1.1em; }
+  </style>
+</head>
+<body>
+
+  <div id="loading" class="d-flex justify-content-center align-items-center vh-100 bg-white">
+    <div class="spinner-border text-primary" role="status"></div>
+  </div>
+
+  <div id="app" class="container-fluid py-4 d-none">
+    <div class="d-flex justify-content-between align-items-center mb-3 px-2">
+      <h4 class="fw-bold text-primary"><i class="bi bi-speedometer2"></i> Admin Dashboard (PA)</h4>
+      <div>
+        <span class="me-2 text-muted small" id="admin-name">...</span>
+      </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-body py-2 d-flex gap-2 align-items-center">
+        <select id="sel-month" class="form-select w-auto form-select-sm"></select>
+        <select id="sel-year" class="form-select w-auto form-select-sm"></select>
+        <button onclick="loadData()" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> แสดงข้อมูล</button>
+        <div class="ms-auto">
+             <button onclick="saveWeights()" class="btn btn-success btn-sm"><i class="bi bi-save"></i> บันทึกค่าตัวคูณ</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow border-0">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover align-middle mb-0 table-sm">
+            <thead class="table-light text-center align-middle">
+              <tr>
+                <th rowspan="2" style="min-width: 150px;">แพทย์</th>
+                <th colspan="5">จำนวนเคส (Count)</th>
+                <th colspan="5" class="w-col">ตัวคูณ (Weight)</th>
+                <th rowspan="2" class="total-col text-end">Total PA</th>
+              </tr>
+              <tr class="small text-muted">
+                <th>First</th>
+                <th>F/U</th>
+                <th class="text-danger">UGIB</th>
+                <th class="text-danger">Other</th>
+                <th class="text-danger">Non</th>
+                
+                <th class="w-col">x First</th>
+                <th class="w-col">x F/U</th>
+                <th class="w-col text-danger">x UGIB</th>
+                <th class="w-col text-danger">x Other</th>
+                <th class="w-col text-danger">x Non</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer bg-white text-muted small">
+        * ช่องสีเหลืองสามารถพิมพ์แก้ไขตัวคูณได้ ระบบจะคำนวณ Total ใหม่ทันที (อย่าลืมกดบันทึกเพื่อเก็บค่าไว้ใช้ครั้งหน้า)
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // **********************************
+    // ⚠️ ใส่ URL เดิมของคุณ
+    const WEB_APP_URL = 'https://script.google.com/macros/s/xxxxxxxxx/exec'; 
+    const LIFF_ID = 'YOUR_LIFF_ID'; 
+    // **********************************
+
+    let currentAdmin = null;
+    let currentData = [];
+
+    window.onload = async function() {
+        // Setup Date
+        const m = document.getElementById('sel-month');
+        ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."].forEach((n, i) => m.innerHTML += `<option value="${i+1}" ${i === new Date().getMonth() ? 'selected' : ''}>${n}</option>`);
+        const y = document.getElementById('sel-year');
+        const cy = new Date().getFullYear();
+        y.innerHTML = `<option value="${cy}">${cy}</option><option value="${cy-1}">${cy-1}</option>`;
+
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        const profile = await liff.getProfile();
+        
+        currentAdmin = profile.userId;
+        document.getElementById('admin-name').innerText = profile.displayName;
+        loadData();
+    };
+
+    function loadData() {
+        const month = document.getElementById('sel-month').value;
+        const year = document.getElementById('sel-year').value;
+        
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('app').classList.add('d-none');
+
+        fetch(`${WEB_APP_URL}?action=getAdminStats&uid=${currentAdmin}&month=${month}&year=${year}`)
+        .then(r => r.json())
+        .then(data => {
+            if(data.error) { alert("Access Denied: คุณไม่มีสิทธิ์ Admin"); return; }
+            currentData = data;
+            renderTable();
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('app').classList.remove('d-none');
+        });
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = "";
+        
+        currentData.forEach((doc, idx) => {
+            // คำนวณ Score
+            const score = calcScore(doc);
+            
+            const tr = `
+                <tr>
+                    <td class="fw-bold px-3">${doc.name}</td>
+                    
+                    <td class="text-center">${doc.c_first}</td>
+                    <td class="text-center">${doc.c_follow}</td>
+                    <td class="text-center text-danger bg-light">${doc.c_ugib}</td>
+                    <td class="text-center text-danger bg-light">${doc.c_other}</td>
+                    <td class="text-center text-danger bg-light">${doc.c_non}</td>
+                    
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_first}" onchange="updateVal(${idx}, 'w_first', this.value)"></td>
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_follow}" onchange="updateVal(${idx}, 'w_follow', this.value)"></td>
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_ugib}" onchange="updateVal(${idx}, 'w_ugib', this.value)"></td>
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_other}" onchange="updateVal(${idx}, 'w_other', this.value)"></td>
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_non}" onchange="updateVal(${idx}, 'w_non', this.value)"></td>
+                    
+                    <td class="total-col text-end text-success px-3" id="score_${idx}">${score.toFixed(1)}</td>
+                </tr>
+            `;
+            tbody.innerHTML += tr;
+        });
+    }
+
+    // Helper: คำนวณคะแนนรวม
+    function calcScore(doc) {
+        return (doc.c_first * doc.w_first) + 
+               (doc.c_follow * doc.w_follow) + 
+               (doc.c_ugib * doc.w_ugib) + 
+               (doc.c_other * doc.w_other) + 
+               (doc.c_non * doc.w_non);
+    }
+
+    // อัปเดตค่าเมื่อพิมพ์ในตาราง
+    window.updateVal = function(idx, field, val) {
+        currentData[idx][field] = parseFloat(val) || 0;
+        const newScore = calcScore(currentData[idx]);
+        document.getElementById(`score_${idx}`).innerText = newScore.toFixed(1);
+    }
+
+    // บันทึกกลับ Server
+    window.saveWeights = function() {
+        const payload = currentData.map(d => ({
+            docUID: d.uid,
+            w_first: d.w_first, w_follow: d.w_follow,
+            w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
+        }));
+
+        const btn = document.querySelector('.btn-success');
+        const oldText = btn.innerHTML;
+        btn.innerHTML = "Saving..."; btn.disabled = true;
+
+        fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'updateWeights', uid: currentAdmin, payload: payload })
+        })
+        .then(r => r.json())
+        .then(res => {
+            alert("บันทึกเรียบร้อย ✅");
+            btn.innerHTML = oldText; btn.disabled = false;
+        });
+    }
+  </script>
+</body>
+</html>
