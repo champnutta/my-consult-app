@@ -11,18 +11,23 @@
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
   <style>
-    body { background-color: #f8f9fa; font-family: sans-serif; padding-bottom: 80px; }
+    body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; padding-bottom: 80px; }
     .hidden { display: none !important; }
-    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     
-    .unauth-box { text-align: center; padding: 40px 20px; background-color: #fff; border-radius: 15px; margin-top: 40px; }
+    /* Loading & Auth Screens */
+    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .unauth-box { text-align: center; padding: 40px 20px; background-color: #fff; border-radius: 15px; margin-top: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
     .uid-display { background: #f1f3f5; color: #495057; padding: 15px; font-family: monospace; word-break: break-all; margin: 20px 0; border: 1px dashed #ced4da; }
 
+    /* Layout */
+    .header-bar { background: white; padding: 15px; border-bottom: 1px solid #eee; margin-bottom: 20px; border-radius: 0 0 15px 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
     .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #eaeaea; display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; }
-    .nav-item { text-align: center; color: #adb5bd; width: 33%; cursor: pointer; }
+    .nav-item { text-align: center; color: #adb5bd; width: 33%; cursor: pointer; padding-top: 8px; }
     .nav-item.active { color: #0d6efd; font-weight: bold; }
+    .nav-item i { display: block; font-size: 1.4rem; margin-bottom: 2px; }
     
-    .search-results { position: absolute; width: 100%; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 100; }
+    /* Search Results */
+    .search-results { position: absolute; width: 100%; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .search-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
   </style>
 </head>
@@ -30,7 +35,7 @@
 
   <div id="loading" class="loading-overlay">
     <div class="spinner-border text-primary" role="status"></div>
-    <h6 class="mt-3 text-secondary">Loading...</h6>
+    <h6 class="mt-3 text-secondary">Loading System...</h6>
   </div>
 
   <div class="container" style="max-width: 600px; padding: 0;">
@@ -39,6 +44,7 @@
       <div class="unauth-box">
         <h1 class="text-danger"><i class="bi bi-shield-lock"></i></h1>
         <h4>Access Denied</h4>
+        <p class="text-muted small">User ID นี้ยังไม่ได้ลงทะเบียน</p>
         <div class="uid-display" id="show-uid">...</div>
         <button onclick="copyUID()" class="btn btn-outline-primary w-100 mb-3">Copy UserID</button>
         <button onclick="location.reload()" class="btn btn-primary w-100 btn-lg">Refresh</button>
@@ -47,21 +53,27 @@
 
     <div id="main-app" class="hidden">
         
-        <div class="bg-white p-3 border-bottom mb-3 d-flex justify-content-between align-items-center">
-            <h5 class="m-0 text-primary fw-bold"><i class="bi bi-person-circle"></i> <span id="header-doc-name">...</span></h5>
-            <button onclick="location.reload()" class="btn btn-light btn-sm"><i class="bi bi-arrow-clockwise"></i></button>
+        <div class="header-bar d-flex justify-content-between align-items-center">
+            <div>
+                <small class="text-muted">แพทย์ผู้ตรวจ</small>
+                <h5 class="m-0 text-primary fw-bold"><i class="bi bi-person-circle"></i> <span id="header-doc-name">...</span></h5>
+            </div>
+            <button onclick="location.reload()" class="btn btn-light btn-sm text-muted"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
 
         <div class="container px-3 pb-5">
 
             <div id="tab-input" class="page-section">
                 <form id="consult-form">
-                    <div class="card mb-3 border-0 shadow-sm bg-white p-3">
-                        <label class="fw-bold small text-muted">Specialty</label>
-                        <div id="specialty-container"></div>
+                    <div class="card mb-3 border-0 shadow-sm bg-white">
+                        <div class="card-body py-3">
+                            <label class="fw-bold small text-muted text-uppercase mb-2">Specialty</label>
+                            <div id="specialty-container"></div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
+                        <label class="fw-bold small text-muted text-uppercase">Visit Type</label>
                         <div class="btn-group w-100">
                             <input type="radio" class="btn-check" name="visitType" id="v1" value="First visit" checked onchange="toggleMode()">
                             <label class="btn btn-outline-primary" for="v1">First Visit</label>
@@ -70,101 +82,85 @@
                         </div>
                     </div>
 
-    <div id="mode-scan" class="mb-3">
-    <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
-    
-    <div class="input-group mb-2">
-        <input type="file" 
-               class="form-control form-control-lg" 
-               accept="image/*" 
-               id="nativeFileInput"
-               onchange="processFile(this)">
-    </div>
-    
-    <div class="form-text text-muted mb-2">
-        * หากกดแล้วเงียบ ให้ลองกดปุ่ม "เปิดใน Chrome" ด้านล่าง
-    </div>
+                    <div id="mode-scan" class="mb-3">
+                        <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
+                        
+                        <div class="input-group mb-2">
+                            <input type="file" class="form-control" accept="image/*" id="nativeFileInput" onchange="processFile(this)">
+                        </div>
+                        <div class="form-text text-muted mb-2 small">* กดเพื่อเลือก "กล้อง" หรือ "อัลบั้ม"</div>
 
-    <div class="text-center mt-2 position-relative">
-        <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
-    </div>
-    
-    <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
-        <i class="bi bi-magic"></i> อ่านชื่อ (AI)
-    </button>
-    
-    <button type="button" onclick="openExternal()" class="btn btn-outline-dark w-100 mt-3 btn-sm">
-        <i class="bi bi-box-arrow-up-right"></i> เปิดใน Chrome/Safari (ถ้ากล้องค้าง)
-    </button>
-</div>
-
-        <input type="file" 
-               accept="image/*" 
-               style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
-               onchange="processFile(this)">
-    </div>
-
-    <div class="text-center mt-2 position-relative">
-        <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
-    </div>
-    
-    <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
-        <i class="bi bi-magic"></i> อ่านชื่อ (AI)
-    </button>
-</div>
-
-                        <div class="text-center mt-2">
+                        <div class="text-center mt-2 position-relative">
                             <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
                         </div>
                         
                         <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
-                            <i class="bi bi-magic"></i> อ่านชื่อ (AI)
+                            <i class="bi bi-magic"></i> ให้ AI อ่านชื่อ
+                        </button>
+                        
+                        <button type="button" onclick="openExternal()" class="btn btn-outline-secondary w-100 mt-3 btn-sm">
+                            <i class="bi bi-box-arrow-up-right"></i> เปิดใน Browser (หากกล้องค้าง)
                         </button>
                     </div>
 
                     <div id="mode-search" class="mb-3 hidden position-relative">
-                        <label class="form-label fw-bold small text-muted">Search Patient</label>
-                        <input type="text" id="patient-search" class="form-control" placeholder="พิมพ์ชื่อ หรือ HN..." onkeyup="filterPatients()">
+                        <label class="form-label fw-bold small text-muted text-uppercase">Search Patient</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                            <input type="text" id="patient-search" class="form-control" placeholder="ค้นหาชื่อ หรือ HN..." onkeyup="filterPatients()">
+                        </div>
                         <div id="search-results" class="search-results hidden"></div>
                     </div>
 
                     <div class="row g-2 mb-4">
-                        <div class="col-12"><input type="text" id="p-name" class="form-control" placeholder="ชื่อ-สกุล" required></div>
-                        <div class="col-12"><input type="text" id="p-hn" class="form-control" placeholder="HN" required></div>
+                        <div class="col-12">
+                            <label class="small text-muted">ชื่อ-นามสกุล</label>
+                            <input type="text" id="p-name" class="form-control" placeholder="ระบุชื่อคนไข้" required>
+                        </div>
+                        <div class="col-12">
+                            <label class="small text-muted">HN</label>
+                            <input type="text" id="p-hn" class="form-control" placeholder="ระบุเลข HN" required>
+                        </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-primary w-100 btn-lg shadow py-3 fw-bold">บันทึกข้อมูล</button>
+                    <button type="submit" class="btn btn-primary w-100 btn-lg shadow fw-bold mb-5">บันทึกข้อมูล <i class="bi bi-save"></i></button>
                 </form>
-            </div>
-
+            </div> 
             <div id="tab-history" class="page-section hidden">
-                <h5>ประวัติการตรวจ</h5>
+                <h5 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> ประวัติการตรวจ</h5>
                 <div class="btn-group w-100 mb-3">
                     <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(7)">7 วัน</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(30)">1 เดือน</button>
                     <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(90)">3 เดือน</button>
                 </div>
-                <div id="history-list" class="list-group shadow-sm"></div>
+                <div id="history-list" class="list-group shadow-sm border-0"></div>
+                <p id="no-history" class="text-center text-muted mt-5 hidden">ไม่พบข้อมูลย้อนหลัง</p>
             </div>
+
 
             <div id="tab-dashboard" class="page-section hidden">
-                <h5>Dashboard</h5>
-                <div class="row g-2 mb-3">
-                   <div class="col-6"><select id="filter-scope" class="form-select form-select-sm" onchange="updateDash()"><option value="me">ของฉัน</option><option value="all">ทั้งหมด</option></select></div>
-                   <div class="col-6"><select id="filter-year" class="form-select form-select-sm" onchange="updateDash()"></select></div>
-                   <div class="col-6 hidden" id="div-filter-doc"><select id="filter-doc" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกคน</option></select></div>
-                   <div class="col-6"><select id="filter-spec" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกสาขา</option></select></div>
+                <h5 class="fw-bold mb-3"><i class="bi bi-graph-up-arrow"></i> สรุปข้อมูล</h5>
+                <div class="card mb-3 border-0 shadow-sm bg-white">
+                  <div class="card-body p-2">
+                    <div class="row g-2">
+                        <div class="col-6"><select id="filter-scope" class="form-select form-select-sm" onchange="updateDash()"><option value="me">ของฉัน</option><option value="all">ทั้งหมด</option></select></div>
+                        <div class="col-6"><select id="filter-year" class="form-select form-select-sm" onchange="updateDash()"></select></div>
+                        <div class="col-6 hidden" id="div-filter-doc"><select id="filter-doc" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกคน</option></select></div>
+                        <div class="col-6"><select id="filter-spec" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกสาขา</option></select></div>
+                    </div>
+                  </div>
                 </div>
-                <div class="card bg-primary text-white text-center p-3 mb-3">
-                    <h1 class="display-4 fw-bold" id="chart-total">0</h1><small>จำนวนเคส</small>
+
+                <div class="card bg-primary text-white mb-3 shadow border-0">
+                    <div class="card-body text-center p-4">
+                        <h6 class="mb-0 text-white-50">เคสทั้งหมด</h6>
+                        <h1 class="display-4 fw-bold mb-0" id="chart-total">0</h1>
+                    </div>
                 </div>
-                <canvas id="barChart" style="max-height: 200px;"></canvas>
+                <div class="card mb-3 border-0 shadow-sm"><div class="card-body"><canvas id="barChart" style="max-height: 200px;"></canvas></div></div>
             </div>
 
-        </div> 
-    </div> 
-
-  </div>
+        </div> </div> </div>
 
   <div id="bottom-nav" class="bottom-nav hidden">
     <div class="nav-item active" id="nav-input" onclick="switchTab('input')"><i class="bi bi-pencil-square"></i><span>บันทึก</span></div>
@@ -174,7 +170,7 @@
 
   <script>
     // ************************************************
-    // ⚠️ แก้ URL และ LIFF ID
+    // ⚠️ อย่าลืมแก้ตรงนี้เป็น URL ของ Google Script ล่าสุด
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz8P4vW1tS1mfGMys4VwTWVWaV89kJZs9V9DNX3vcb_MzjKjvsSDfmwh2wlg1tgFHeS/exec'; 
     const LIFF_ID = '2008753162-pqFRi41y'; 
     // ************************************************
@@ -207,7 +203,7 @@
                 document.getElementById('unauth-screen').classList.remove('hidden');
                 document.getElementById('show-uid').innerText = res.uid;
             }
-        }).catch(e => alert("Error: "+e));
+        }).catch(e => alert("Connection Error: "+e));
     }
 
     function startApp() {
@@ -228,14 +224,13 @@
         loadDashboard();
     }
 
-    // --- Process File (สำคัญมากสำหรับรูป) ---
+    // --- Image Processing ---
     window.processFile = function(input) {
         const f = input.files[0];
         if (f) {
-            // โชว์ปุ่ม Loading
             const btnScan = document.getElementById('btn-scan');
             btnScan.classList.remove('hidden');
-            btnScan.innerHTML = 'Processing...';
+            btnScan.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
             btnScan.disabled = true;
 
             const r = new FileReader();
@@ -252,17 +247,16 @@
                     document.getElementById('preview').src = c.toDataURL();
                     document.getElementById('preview').classList.remove('hidden');
                     
-                    btnScan.innerHTML = '<i class="bi bi-magic"></i> อ่านชื่อ (AI)';
+                    btnScan.innerHTML = '<i class="bi bi-magic"></i> ให้ AI อ่านชื่อ';
                     btnScan.disabled = false;
                 };
                 i.src = e.target.result;
             };
             r.readAsDataURL(f);
         }
-        input.value = ''; 
     }
 
-    // --- Helpers ---
+    // --- Tab Switching ---
     window.switchTab = function(tab) {
         document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -273,7 +267,12 @@
         window.scrollTo(0,0);
     }
     
-    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
+    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("คัดลอก UID แล้ว"); }
+    
+    window.openExternal = function() {
+        if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } 
+        else { alert("คุณเปิด Browser อยู่แล้ว"); }
+    }
 
     window.toggleMode = function() {
         const type = document.querySelector('input[name="visitType"]:checked').value;
@@ -281,7 +280,7 @@
         else { document.getElementById('mode-scan').classList.add('hidden'); document.getElementById('mode-search').classList.remove('hidden'); }
     }
 
-    // Load Data
+    // Data Functions
     function loadExistingPatients() { fetch(`${WEB_APP_URL}?action=getPatients&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) existingPatients=d; }); }
     function loadAllDoctors() { fetch(`${WEB_APP_URL}?action=getDoctors`).then(r=>r.json()).then(d=>{ allDoctors=d; initDashFilters(); }); }
 
@@ -302,11 +301,17 @@
     window.loadHistory = function(days) {
         document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active','bg-secondary','text-white'));
         event.target.classList.add('active','bg-secondary','text-white');
-        const list = document.getElementById('history-list'); list.innerHTML = 'Loading...';
+        const list = document.getElementById('history-list'); list.innerHTML = '<p class="text-center mt-3 small">กำลังโหลด...</p>';
         fetch(`${WEB_APP_URL}?action=getHistory&uid=${currentDoctor.uid}&days=${days}`).then(r=>r.json()).then(data => {
             list.innerHTML = "";
-            if(data.length === 0) list.innerHTML = "<p class='text-center text-muted mt-3'>ไม่พบข้อมูล</p>";
-            else data.forEach(item => { const sn = item.patient.replace(/'/g, "\\'"); const sh = item.hn.replace(/'/g, "\\'"); list.innerHTML += `<div class="list-group-item d-flex justify-content-between align-items-center"><div><h6 class="mb-0 text-primary fw-bold">${item.patient}</h6><small>${item.date}</small></div><button class="btn btn-outline-primary btn-sm" onclick="selectHistory('${sn}','${sh}')">Follow</button></div>`; });
+            if(data.length === 0) { document.getElementById('no-history').classList.remove('hidden'); }
+            else {
+                document.getElementById('no-history').classList.add('hidden');
+                data.forEach(item => {
+                    const sn = item.patient.replace(/'/g, "\\'"); const sh = item.hn.replace(/'/g, "\\'");
+                    list.innerHTML += `<div class="list-group-item d-flex justify-content-between align-items-center"><div><h6 class="mb-0 text-primary fw-bold">${item.patient}</h6><small class="text-muted">${item.date}</small></div><button class="btn btn-outline-primary btn-sm" onclick="selectHistory('${sn}','${sh}')">Follow</button></div>`;
+                });
+            }
         });
     }
     window.selectHistory = function(n, h) { switchTab('input'); document.getElementById('v2').click(); document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; }
@@ -349,7 +354,7 @@
             hn: document.getElementById('p-hn').value,
             visitType: document.querySelector('input[name="visitType"]:checked').value
         };
-        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกเรียบร้อย"); location.reload(); });
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกข้อมูลเรียบร้อย ✅"); location.reload(); });
     };
 
     window.scanImage = function() { 
@@ -359,19 +364,7 @@
         .then(r=>r.json()).then(res=>{ 
             document.getElementById('p-name').value = res.name || ""; document.getElementById('p-hn').value = res.hn || ""; 
             btn.innerHTML = old; btn.disabled = false;
-        }).catch(() => { alert("AI Failed"); btn.innerHTML = old; btn.disabled = false; });
-    }
-
-// ฟังก์ชันเปิด Browser ภายนอก (แก้ปัญหา LIFF กล้องค้าง)
-    window.openExternal = function() {
-        if (liff.isInClient()) {
-            liff.openWindow({
-                url: window.location.href,
-                external: true
-            });
-        } else {
-            alert("คุณเปิดอยู่ใน Browser อยู่แล้วครับ");
-        }
+        }).catch(() => { alert("AI อ่านไม่สำเร็จ หรือ Timeout"); btn.innerHTML = old; btn.disabled = false; });
     }
   </script>
 </body>
