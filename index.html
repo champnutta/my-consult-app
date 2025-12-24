@@ -96,10 +96,25 @@
                     <div id="mode-scan" class="mb-3">
                         <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
                         
-                        <div class="input-group mb-2">
-                            <input type="file" class="form-control" accept="image/*" id="nativeFileInput" onchange="processFile(this)">
+                        <div class="d-flex gap-2">
+                            <label class="btn btn-warning w-50 py-3 shadow-sm text-dark fw-bold position-relative">
+                                <i class="bi bi-camera-fill fs-4 d-block"></i> ถ่ายรูป
+                                <input type="file" id="camInput" accept="image/*" capture="environment" 
+                                       style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
+                                       onchange="processFile(this)">
+                            </label>
+                            
+                            <label class="btn btn-outline-secondary w-50 py-3 shadow-sm fw-bold position-relative">
+                                <i class="bi bi-images fs-4 d-block"></i> อัลบั้ม
+                                <input type="file" id="galInput" accept="image/*"
+                                       style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
+                                       onchange="processFile(this)">
+                            </label>
                         </div>
-                        <div class="form-text text-muted mb-2 small">* เลือกรูปปุ๊บ ระบบจะอ่านให้อัตโนมัติ</div>
+                        
+                        <div class="form-text text-muted mt-2 small text-center">
+                            * ถ่ายรูปปุ๊บ ระบบจะอ่านให้อัตโนมัติ
+                        </div>
 
                         <div class="text-center mt-2 position-relative">
                             <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
@@ -272,10 +287,9 @@
     window.processFile = function(input) {
         const f = input.files[0];
         if (f) {
-            // โชว์ปุ่มสถานะว่ากำลังประมวลผล
             const btnScan = document.getElementById('btn-scan');
             btnScan.classList.remove('hidden');
-            btnScan.classList.remove('btn-success', 'btn-danger'); // Reset สี
+            btnScan.classList.remove('btn-success', 'btn-danger'); 
             btnScan.classList.add('btn-secondary');
             btnScan.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังประมวลรูป...';
             btnScan.disabled = true;
@@ -294,21 +308,18 @@
                     document.getElementById('preview').src = c.toDataURL();
                     document.getElementById('preview').classList.remove('hidden');
                     
-                    // 🔥 AUTO SCAN TRIGGER 🔥
-                    // สั่งอ่านทันทีเมื่อรูปพร้อม!
+                    // AUTO SCAN TRIGGER
                     scanImage();
                 };
                 i.src = e.target.result;
             };
             r.readAsDataURL(f);
         }
-        // Reset input
-        input.value = '';
+        // ไม่ reset value เพื่อให้ UX ไม่สะดุด
     }
 
     window.scanImage = function() { 
         const btn = document.getElementById('btn-scan'); 
-        // เปลี่ยนสถานะเป็น "กำลังอ่าน AI"
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI กำลังอ่านชื่อ...';
         btn.classList.add('btn-primary');
         btn.classList.remove('btn-secondary');
@@ -318,14 +329,12 @@
             document.getElementById('p-name').value = res.name || ""; 
             document.getElementById('p-hn').value = res.hn || ""; 
             
-            // เปลี่ยนสถานะเป็น "สำเร็จ"
             btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> อ่านเรียบร้อย';
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
-            btn.disabled = false; // เผื่ออยากกดซ้ำ (แต่ปกติไม่ต้องกดแล้ว)
+            btn.disabled = false;
             
         }).catch(() => { 
-            // เปลี่ยนสถานะเป็น "ล้มเหลว"
             btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> AI อ่านไม่ออก (กรุณากรอกเอง)';
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-danger');
