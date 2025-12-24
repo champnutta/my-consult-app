@@ -14,6 +14,10 @@
     .w-col { background-color: #fff3cd !important; }
     .total-col { background-color: #d1e7dd !important; font-weight: bold; font-size: 1.1em; }
     .filter-label { font-size: 0.8rem; font-weight: bold; color: #666; margin-right: 5px; }
+    
+    /* ปรับแต่ง Tab ให้ดูง่าย */
+    .nav-tabs .nav-link { color: #495057; font-weight: bold; }
+    .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd; }
   </style>
 </head>
 <body>
@@ -24,7 +28,7 @@
 
   <div id="app" class="container-fluid py-4 d-none">
     <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-      <h4 class="fw-bold text-primary"><i class="bi bi-speedometer2"></i> Admin Dashboard (PA)</h4>
+      <h4 class="fw-bold text-primary"><i class="bi bi-speedometer2"></i> Admin Dashboard</h4>
       <div><span class="me-2 text-muted small" id="admin-name">...</span></div>
     </div>
 
@@ -44,49 +48,96 @@
                 <span class="filter-label">Dept:</span>
                 <select id="sel-spec" class="form-select form-select-sm" style="min-width: 150px;">
                     <option value="All">All Departments</option>
-                    </select>
+                </select>
             </div>
 
             <div class="col-auto ms-auto">
                 <button onclick="loadData()" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> แสดงข้อมูล</button>
-                <button onclick="saveWeights()" class="btn btn-success btn-sm ms-1"><i class="bi bi-save"></i> บันทึกตัวคูณ</button>
+                <button onclick="saveWeights()" class="btn btn-success btn-sm ms-1"><i class="bi bi-save"></i> บันทึกค่า (ทั้งหมด)</button>
             </div>
         </div>
       </div>
     </div>
 
-    <div class="card shadow border-0">
-      <div class="card-body p-0">
-        <div class="table-responsive">
-          <table class="table table-bordered table-hover align-middle mb-0 table-sm">
-            <thead class="table-light text-center align-middle">
-              <tr>
-                <th rowspan="2" style="min-width: 150px;">แพทย์</th>
-                <th colspan="5">จำนวนเคส (Count)</th>
-                <th colspan="5" class="w-col">ตัวคูณ (Weight)</th>
-                <th rowspan="2" class="total-col text-end">Total PA</th>
-              </tr>
-              <tr class="small text-muted">
-                <th>First</th>
-                <th>F/U</th>
-                <th class="text-danger">UGIB</th>
-                <th class="text-danger">Other</th>
-                <th class="text-danger">Non</th>
-                
-                <th class="w-col">x First</th>
-                <th class="w-col">x F/U</th>
-                <th class="w-col text-danger">x UGIB</th>
-                <th class="w-col text-danger">x Other</th>
-                <th class="w-col text-danger">x Non</th>
-              </tr>
-            </thead>
-            <tbody id="table-body"></tbody>
-          </table>
+    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="pa-tab" data-bs-toggle="tab" data-bs-target="#pa-pane" type="button" role="tab">
+            <i class="bi bi-clipboard-data"></i> General PA (ภาพรวม)
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="gi-tab" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button" role="tab">
+            <i class="bi bi-lungs"></i> GI Statistics (เฉพาะทาง)
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="myTabContent">
+      
+      <div class="tab-pane fade show active" id="pa-pane" role="tabpanel">
+        <div class="card shadow border-0">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover align-middle mb-0 table-sm">
+                <thead class="table-light text-center align-middle">
+                  <tr>
+                    <th rowspan="2" style="min-width: 180px;">แพทย์</th>
+                    <th colspan="2">จำนวนเคส</th>
+                    <th colspan="2" class="w-col">ตัวคูณ (Weight)</th>
+                    <th rowspan="2" class="total-col text-end" style="width: 120px;">General Score</th>
+                  </tr>
+                  <tr class="small text-muted">
+                    <th>First Visit</th>
+                    <th>Follow Up</th>
+                    <th class="w-col">x First</th>
+                    <th class="w-col">x F/U</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-pa"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer bg-white text-muted small">
+            * หน้านี้คิดคะแนนจาก Visit Type (First/Follow up) เท่านั้น ซึ่งใช้ร่วมกันทุกแผนก
+          </div>
         </div>
       </div>
-    </div>
 
-  </div>
+      <div class="tab-pane fade" id="gi-pane" role="tabpanel">
+        <div class="card shadow border-0">
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-bordered table-hover align-middle mb-0 table-sm">
+                <thead class="table-light text-center align-middle">
+                  <tr>
+                    <th rowspan="2" style="min-width: 180px;">แพทย์</th>
+                    <th colspan="3">สถิติ Diagnosis</th>
+                    <th colspan="3" class="w-col">ตัวคูณ (Optional)</th>
+                    <th rowspan="2" class="total-col text-end" style="width: 120px;">GI Score</th>
+                  </tr>
+                  <tr class="small text-muted">
+                    <th class="text-danger">UGIB</th>
+                    <th class="text-danger">Other GI</th>
+                    <th class="text-danger">Non GI</th>
+                    
+                    <th class="w-col text-danger">x UGIB</th>
+                    <th class="w-col text-danger">x Other</th>
+                    <th class="w-col text-danger">x Non</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-gi"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer bg-white text-muted small">
+             * หน้านี้แสดงสถิติเฉพาะหน่วย GI (สามารถใส่ตัวคูณเพื่อคิดคะแนนพิเศษได้ หรือจะดูแค่จำนวนก็ได้)
+          </div>
+        </div>
+      </div>
+
+    </div> </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
   <script>
     // **********************************
@@ -99,54 +150,44 @@
     let currentData = [];
 
     window.onload = async function() {
-        // Init Months
+        // Init Date Dropdowns
         const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
         const mStart = document.getElementById('sel-month-start');
         const mEnd = document.getElementById('sel-month-end');
         const curMonth = new Date().getMonth();
         
         months.forEach((n, i) => {
-            mStart.innerHTML += `<option value="${i+1}" ${i === 0 ? 'selected' : ''}>${n}</option>`; // Default ม.ค.
-            mEnd.innerHTML += `<option value="${i+1}" ${i === curMonth ? 'selected' : ''}>${n}</option>`; // Default เดือนปัจจุบัน
+            mStart.innerHTML += `<option value="${i+1}" ${i === 0 ? 'selected' : ''}>${n}</option>`; 
+            mEnd.innerHTML += `<option value="${i+1}" ${i === curMonth ? 'selected' : ''}>${n}</option>`; 
         });
 
-        // Init Year
         const y = document.getElementById('sel-year');
         const cy = new Date().getFullYear();
         y.innerHTML = `<option value="${cy}">${cy}</option><option value="${cy-1}">${cy-1}</option>`;
 
-        // LIFF
+        // LIFF Auth
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const profile = await liff.getProfile();
         currentAdmin = profile.userId;
         document.getElementById('admin-name').innerText = profile.displayName;
 
-        // Fetch Department List & Load Data
         initDepartments();
     };
 
-    // ดึงรายชื่อแผนกทั้งหมดมาทำตัวเลือก
     function initDepartments() {
-        fetch(`${WEB_APP_URL}?action=getDoctors`) // ใช้ Endpoint นี้ได้เพราะเราแก้ให้มันส่ง Specialty มาด้วยแล้ว
+        fetch(`${WEB_APP_URL}?action=getDoctors`)
         .then(r => r.json())
         .then(data => {
             const specSet = new Set();
             data.forEach(d => {
-                // ข้อมูลอาจจะเป็น "Internal Medicine, Cardio" -> ต้องแยกด้วย comma
                 if (d.specialties) {
-                    // แปลง Array หรือ String ให้เป็น Array ที่สะอาด
                     let specs = Array.isArray(d.specialties) ? d.specialties : String(d.specialties).split(',');
                     specs.forEach(s => specSet.add(s.trim()));
                 }
             });
-            
             const selSpec = document.getElementById('sel-spec');
-            specSet.forEach(s => {
-                if(s) selSpec.innerHTML += `<option value="${s}">${s}</option>`;
-            });
-
-            // พอโหลด Dropdown เสร็จ ค่อยโหลดข้อมูลตาราง
+            specSet.forEach(s => { if(s) selSpec.innerHTML += `<option value="${s}">${s}</option>`; });
             loadData();
         });
     }
@@ -157,11 +198,7 @@
         const year = document.getElementById('sel-year').value;
         const spec = document.getElementById('sel-spec').value;
         
-        // Validation: Start > End
-        if (parseInt(start) > parseInt(end)) {
-            alert("ช่วงเดือนไม่ถูกต้อง (เดือนเริ่มต้น ต้องมาก่อน เดือนสิ้นสุด)");
-            return;
-        }
+        if (parseInt(start) > parseInt(end)) { alert("ช่วงเดือนไม่ถูกต้อง"); return; }
 
         document.getElementById('loading').classList.remove('d-none');
         document.getElementById('app').classList.add('d-none');
@@ -171,71 +208,95 @@
         .then(data => {
             if(data.error) { alert("Access Denied"); return; }
             currentData = data;
-            renderTable();
+            renderTables(); // เรียกฟังก์ชันใหม่ที่เรนเดอร์ 2 ตาราง
             document.getElementById('loading').classList.add('d-none');
             document.getElementById('app').classList.remove('d-none');
         });
     }
 
-    function renderTable() {
-        const tbody = document.getElementById('table-body');
-        tbody.innerHTML = "";
+    function renderTables() {
+        const tbodyPA = document.getElementById('tbody-pa');
+        const tbodyGI = document.getElementById('tbody-gi');
         
+        tbodyPA.innerHTML = "";
+        tbodyGI.innerHTML = "";
+
         if (currentData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="12" class="text-center py-4 text-muted">ไม่พบข้อมูลในช่วงเวลานี้ หรือ แผนกนี้</td></tr>`;
+            tbodyPA.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>`;
             return;
         }
 
         currentData.forEach((doc, idx) => {
-            const score = calcScore(doc);
-            const tr = `
+            // 1. Render Tab General PA
+            // คำนวณเฉพาะ First + Follow
+            const scorePA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
+            
+            tbodyPA.innerHTML += `
                 <tr>
                     <td class="fw-bold px-3">${doc.name}</td>
                     <td class="text-center">${doc.c_first}</td>
                     <td class="text-center">${doc.c_follow}</td>
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_first}" onchange="updateVal(${idx}, 'w_first', this.value)"></td>
+                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_follow}" onchange="updateVal(${idx}, 'w_follow', this.value)"></td>
+                    <td class="total-col text-end text-success px-3" id="scorePA_${idx}">${scorePA.toFixed(1)}</td>
+                </tr>
+            `;
+
+            // 2. Render Tab GI Stats
+            // คำนวณเฉพาะ GI
+            const scoreGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
+
+            tbodyGI.innerHTML += `
+                <tr>
+                    <td class="fw-bold px-3">${doc.name}</td>
                     <td class="text-center text-danger bg-light">${doc.c_ugib}</td>
                     <td class="text-center text-danger bg-light">${doc.c_other}</td>
                     <td class="text-center text-danger bg-light">${doc.c_non}</td>
-                    
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_first}" onchange="updateVal(${idx}, 'w_first', this.value)"></td>
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_follow}" onchange="updateVal(${idx}, 'w_follow', this.value)"></td>
                     <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_ugib}" onchange="updateVal(${idx}, 'w_ugib', this.value)"></td>
                     <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_other}" onchange="updateVal(${idx}, 'w_other', this.value)"></td>
                     <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_non}" onchange="updateVal(${idx}, 'w_non', this.value)"></td>
-                    
-                    <td class="total-col text-end text-success px-3" id="score_${idx}">${score.toFixed(1)}</td>
+                    <td class="total-col text-end text-success px-3" id="scoreGI_${idx}">${scoreGI.toFixed(1)}</td>
                 </tr>
             `;
-            tbody.innerHTML += tr;
         });
     }
 
-    function calcScore(doc) {
-        return (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow) + 
-               (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
-    }
-
+    // ฟังก์ชันอัปเดตค่า (ทำงานร่วมกันทั้ง 2 Tabs)
     window.updateVal = function(idx, field, val) {
         currentData[idx][field] = parseFloat(val) || 0;
-        document.getElementById(`score_${idx}`).innerText = calcScore(currentData[idx]).toFixed(1);
+        
+        // คำนวณใหม่ทั้ง 2 ฝั่งเพื่อความชัวร์
+        const doc = currentData[idx];
+        const newPA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
+        const newGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
+
+        // อัปเดตตัวเลขบนหน้าจอ
+        const elPA = document.getElementById(`scorePA_${idx}`);
+        const elGI = document.getElementById(`scoreGI_${idx}`);
+        
+        if(elPA) elPA.innerText = newPA.toFixed(1);
+        if(elGI) elGI.innerText = newGI.toFixed(1);
     }
 
+    // บันทึกทั้งหมด (ส่งข้อมูลทั้งก้อนกลับไป)
     window.saveWeights = function() {
         const payload = currentData.map(d => ({
             docUID: d.uid,
             w_first: d.w_first, w_follow: d.w_follow,
             w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
         }));
+
         const btn = document.querySelector('.btn-success');
         const oldText = btn.innerHTML;
         btn.innerHTML = "Saving..."; btn.disabled = true;
+
         fetch(WEB_APP_URL, {
             method: 'POST',
             body: JSON.stringify({ action: 'updateWeights', uid: currentAdmin, payload: payload })
         })
         .then(r => r.json())
         .then(res => {
-            alert("บันทึกเรียบร้อย ✅");
+            alert("บันทึกข้อมูลเรียบร้อย ✅");
             btn.innerHTML = oldText; btn.disabled = false;
         });
     }
