@@ -99,18 +99,18 @@
                         <div class="input-group mb-2">
                             <input type="file" class="form-control" accept="image/*" id="nativeFileInput" onchange="processFile(this)">
                         </div>
-                        <div class="form-text text-muted mb-2 small">* กดเพื่อเลือก "กล้อง" หรือ "อัลบั้ม"</div>
+                        <div class="form-text text-muted mb-2 small">* เลือกรูปปุ๊บ ระบบจะอ่านให้อัตโนมัติ</div>
 
                         <div class="text-center mt-2 position-relative">
                             <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
                         </div>
                         
-                        <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
-                            <i class="bi bi-magic"></i> ให้ AI อ่านชื่อ
+                        <button type="button" id="btn-scan" class="btn btn-secondary w-100 mt-2 hidden" disabled>
+                            รอรูปภาพ...
                         </button>
                         
                         <button type="button" onclick="openExternal()" class="btn btn-outline-secondary w-100 mt-3 btn-sm">
-                            <i class="bi bi-box-arrow-up-right"></i> เปิดใน Browser (หากกล้องค้าง)
+                            <i class="bi bi-box-arrow-up-right"></i> เปิดใน Browser
                         </button>
                     </div>
 
@@ -183,7 +183,7 @@
 
   <script>
     // ************************************************
-    // ⚠️ อย่าลืมแก้ตรงนี้เป็น URL ของ Google Script ล่าสุด
+    // ⚠️ แก้ URL และ LIFF ID
     const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz8P4vW1tS1mfGMys4VwTWVWaV89kJZs9V9DNX3vcb_MzjKjvsSDfmwh2wlg1tgFHeS/exec'; 
     const LIFF_ID = '2008753162-pqFRi41y'; 
     // ************************************************
@@ -195,7 +195,6 @@
     let base64String = "";
     let barChart = null;
 
-    // Register Chart Plugin
     Chart.register(ChartDataLabels);
 
     window.onload = async function() {
@@ -230,15 +229,12 @@
         
         document.getElementById('header-doc-name').innerText = currentDoctor.name;
         
-        // Render Specialty Radio Buttons
         const container = document.getElementById('specialty-container'); 
         container.innerHTML = "";
         
         currentDoctor.specialties.forEach((spec, i) => {
-            // สร้าง Radio Button
             const div = document.createElement('div');
             div.className = "form-check form-check-inline";
-            
             const input = document.createElement('input');
             input.className = "form-check-input";
             input.type = "radio";
@@ -246,51 +242,42 @@
             input.value = spec.trim();
             input.id = "spec-" + i;
             if (i === 0) input.checked = true;
-
-            // เพิ่ม Event Listener เพื่อเช็คว่าเป็น GI หรือไม่
             input.addEventListener('change', checkGI);
-
             const label = document.createElement('label');
             label.className = "form-check-label";
             label.htmlFor = "spec-" + i;
             label.innerText = spec.trim();
-
             div.appendChild(input);
             div.appendChild(label);
             container.appendChild(div);
         });
-
-        // เช็คครั้งแรกตอนโหลด
         checkGI();
-
         loadExistingPatients();
         loadAllDoctors();
         loadDashboard();
     }
 
-    // ฟังก์ชันเช็คว่าเลือก GI หรือไม่
     function checkGI() {
         const selected = document.querySelector('input[name="specialty"]:checked');
         const giDiv = document.getElementById('div-gi-diag');
         const giSelect = document.getElementById('gi-diagnosis');
-        
         if (selected && selected.value.toUpperCase() === 'GI') {
-            giDiv.classList.remove('hidden');
-            giSelect.required = true; // บังคับเลือก
+            giDiv.classList.remove('hidden'); giSelect.required = true;
         } else {
-            giDiv.classList.add('hidden');
-            giSelect.value = ""; // ล้างค่า
-            giSelect.required = false; // ไม่บังคับ
+            giDiv.classList.add('hidden'); giSelect.value = ""; giSelect.required = false;
         }
     }
 
-    // --- Image Processing ---
+    // --- Image Processing & AUTO SCAN ---
     window.processFile = function(input) {
         const f = input.files[0];
         if (f) {
+            // โชว์ปุ่มสถานะว่ากำลังประมวลผล
             const btnScan = document.getElementById('btn-scan');
             btnScan.classList.remove('hidden');
-            btnScan.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+            btnScan.classList.remove('btn-success', 'btn-danger'); // Reset สี
+            btnScan.classList.add('btn-secondary');
+            btnScan.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังประมวลรูป...';
             btnScan.disabled = true;
 
             const r = new FileReader();
@@ -307,16 +294,46 @@
                     document.getElementById('preview').src = c.toDataURL();
                     document.getElementById('preview').classList.remove('hidden');
                     
-                    btnScan.innerHTML = '<i class="bi bi-magic"></i> ให้ AI อ่านชื่อ';
-                    btnScan.disabled = false;
+                    // 🔥 AUTO SCAN TRIGGER 🔥
+                    // สั่งอ่านทันทีเมื่อรูปพร้อม!
+                    scanImage();
                 };
                 i.src = e.target.result;
             };
             r.readAsDataURL(f);
         }
+        // Reset input
+        input.value = '';
     }
 
-    // --- Tab Switching ---
+    window.scanImage = function() { 
+        const btn = document.getElementById('btn-scan'); 
+        // เปลี่ยนสถานะเป็น "กำลังอ่าน AI"
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI กำลังอ่านชื่อ...';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-secondary');
+        
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'analyze', image:base64String})})
+        .then(r=>r.json()).then(res=>{ 
+            document.getElementById('p-name').value = res.name || ""; 
+            document.getElementById('p-hn').value = res.hn || ""; 
+            
+            // เปลี่ยนสถานะเป็น "สำเร็จ"
+            btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> อ่านเรียบร้อย';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            btn.disabled = false; // เผื่ออยากกดซ้ำ (แต่ปกติไม่ต้องกดแล้ว)
+            
+        }).catch(() => { 
+            // เปลี่ยนสถานะเป็น "ล้มเหลว"
+            btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> AI อ่านไม่ออก (กรุณากรอกเอง)';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-danger');
+            btn.disabled = false;
+        });
+    }
+
+    // --- Helpers ---
     window.switchTab = function(tab) {
         document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -327,7 +344,7 @@
         window.scrollTo(0,0);
     }
     
-    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("คัดลอก UID แล้ว"); }
+    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
     
     window.openExternal = function() {
         if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } 
@@ -385,13 +402,12 @@
     }
     function loadDashboard() { fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) rawDashboardData=d; }); }
     
-    // Updated Dashboard with Stacked Bar & 3-Letter Months
+    // Updated Dashboard
     window.updateDash = function() {
         const scope = document.getElementById('filter-scope').value; 
         const year = parseInt(document.getElementById('filter-year').value);
         const fDoc = document.getElementById('filter-doc').value; 
         const fSpec = document.getElementById('filter-spec').value;
-        
         document.getElementById('div-filter-doc').classList.toggle('hidden', scope !== 'all');
         
         const filtered = rawDashboardData.filter(item => {
@@ -405,76 +421,44 @@
         
         document.getElementById('chart-total').innerText = filtered.length;
         
-        // Prepare Stacked Data (Month x Type)
         let firstVisitData = Array(12).fill(0);
         let followUpData = Array(12).fill(0);
         
         filtered.forEach(item => {
             const month = new Date(item.date).getMonth();
-            // เช็คว่าเป็น First หรือ Follow up
-            if (item.type && item.type.toLowerCase().includes('first')) {
-                firstVisitData[month]++;
-            } else {
-                followUpData[month]++;
-            }
+            if (item.type && item.type.toLowerCase().includes('first')) { firstVisitData[month]++; } 
+            else { followUpData[month]++; }
         });
         
         const ctx1 = document.getElementById('barChart');
         if(barChart) barChart.destroy();
-        
         barChart = new Chart(ctx1, {
             type: 'bar',
             data: {
-                labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], // 3 ตัวอักษร
+                labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
                 datasets: [
-                    {
-                        label: 'First Visit',
-                        data: firstVisitData,
-                        backgroundColor: '#0d6efd', // น้ำเงินเข้ม
-                        stack: 'Stack 0'
-                    },
-                    {
-                        label: 'Follow Up',
-                        data: followUpData,
-                        backgroundColor: '#9ec5fe', // น้ำเงินอ่อน
-                        stack: 'Stack 0'
-                    }
+                    { label: 'First Visit', data: firstVisitData, backgroundColor: '#0d6efd', stack: 'Stack 0' },
+                    { label: 'Follow Up', data: followUpData, backgroundColor: '#9ec5fe', stack: 'Stack 0' }
                 ]
             },
             options: {
                 responsive: true,
-                scales: {
-                    x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true }
-                },
+                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
                 plugins: {
-                    datalabels: { // โชว์ตัวเลขบนกราฟ
-                        color: 'white',
-                        font: { weight: 'bold' },
-                        display: function(context) {
-                            return context.dataset.data[context.dataIndex] > 0; // โชว์เฉพาะค่า > 0
-                        }
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
+                    datalabels: { color: 'white', font: { weight: 'bold' }, display: function(context) { return context.dataset.data[context.dataIndex] > 0; } },
+                    tooltip: { mode: 'index', intersect: false }
                 }
             }
         });
     }
 
-    // Submit Form
+    // Submit
     document.getElementById('consult-form').onsubmit = function(e) {
         e.preventDefault();
         document.getElementById('loading').classList.remove('hidden');
-        
-        // ดึงค่า GI Diagnosis (ถ้ามี)
         let diagnosisVal = "";
         const giDiv = document.getElementById('div-gi-diag');
-        if (!giDiv.classList.contains('hidden')) {
-            diagnosisVal = document.getElementById('gi-diagnosis').value;
-        }
+        if (!giDiv.classList.contains('hidden')) { diagnosisVal = document.getElementById('gi-diagnosis').value; }
 
         const payload = {
             doctorName: currentDoctor.name,
@@ -482,25 +466,11 @@
             patientName: document.getElementById('p-name').value,
             hn: document.getElementById('p-hn').value,
             visitType: document.querySelector('input[name="visitType"]:checked').value,
-            diagnosis: diagnosisVal // ส่งค่า Diagnosis ไปด้วย
+            diagnosis: diagnosisVal
         };
-        
-        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})})
-        .then(r=>r.json()).then(()=>{ 
-            alert("บันทึกข้อมูลเรียบร้อย ✅"); 
-            location.reload(); 
-        });
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกข้อมูลเรียบร้อย ✅"); location.reload(); });
     };
 
-    window.scanImage = function() { 
-        const btn = document.getElementById('btn-scan'); const old = btn.innerHTML;
-        btn.innerHTML = 'Reading...'; btn.disabled = true;
-        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'analyze', image:base64String})})
-        .then(r=>r.json()).then(res=>{ 
-            document.getElementById('p-name').value = res.name || ""; document.getElementById('p-hn').value = res.hn || ""; 
-            btn.innerHTML = old; btn.disabled = false;
-        }).catch(() => { alert("AI อ่านไม่สำเร็จ หรือ Timeout"); btn.innerHTML = old; btn.disabled = false; });
-    }
   </script>
 </body>
 </html>
