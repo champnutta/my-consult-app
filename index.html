@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consultation Log</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body { background-color: #f8f9fa; font-family: sans-serif; padding-bottom: 80px; }
+    .hidden { display: none !important; }
+    .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    
+    .unauth-box { text-align: center; padding: 40px 20px; background-color: #fff; border-radius: 15px; margin-top: 40px; }
+    .uid-display { background: #f1f3f5; color: #495057; padding: 15px; font-family: monospace; word-break: break-all; margin: 20px 0; border: 1px dashed #ced4da; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #eaeaea; display: flex; justify-content: space-around; padding: 10px 0; z-index: 1000; }
+    .nav-item { text-align: center; color: #adb5bd; width: 33%; cursor: pointer; }
+    .nav-item.active { color: #0d6efd; font-weight: bold; }
+    
+    .search-results { position: absolute; width: 100%; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 100; }
+    .search-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+  </style>
+</head>
+<body>
+
+  <div id="loading" class="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <h6 class="mt-3 text-secondary">Loading...</h6>
+  </div>
+
+  <div class="container" style="max-width: 600px; padding: 0;">
+
+    <div id="unauth-screen" class="container px-4 hidden">
+      <div class="unauth-box">
+        <h1 class="text-danger"><i class="bi bi-shield-lock"></i></h1>
+        <h4>Access Denied</h4>
+        <div class="uid-display" id="show-uid">...</div>
+        <button onclick="copyUID()" class="btn btn-outline-primary w-100 mb-3">Copy UserID</button>
+        <button onclick="location.reload()" class="btn btn-primary w-100 btn-lg">Refresh</button>
+      </div>
+    </div>
+
+    <div id="main-app" class="hidden">
+        
+        <div class="bg-white p-3 border-bottom mb-3 d-flex justify-content-between align-items-center">
+            <h5 class="m-0 text-primary fw-bold"><i class="bi bi-person-circle"></i> <span id="header-doc-name">...</span></h5>
+            <button onclick="location.reload()" class="btn btn-light btn-sm"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+
+        <div class="container px-3 pb-5">
+
+            <div id="tab-input" class="page-section">
+                <form id="consult-form">
+                    <div class="card mb-3 border-0 shadow-sm bg-white p-3">
+                        <label class="fw-bold small text-muted">Specialty</label>
+                        <div id="specialty-container"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="btn-group w-100">
+                            <input type="radio" class="btn-check" name="visitType" id="v1" value="First visit" checked onchange="toggleMode()">
+                            <label class="btn btn-outline-primary" for="v1">First Visit</label>
+                            <input type="radio" class="btn-check" name="visitType" id="v2" value="Follow up visit" onchange="toggleMode()">
+                            <label class="btn btn-outline-primary" for="v2">Follow Up</label>
+                        </div>
+                    </div>
+
+    <div id="mode-scan" class="mb-3">
+    <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
+    
+    <div class="input-group mb-2">
+        <input type="file" 
+               class="form-control form-control-lg" 
+               accept="image/*" 
+               id="nativeFileInput"
+               onchange="processFile(this)">
+    </div>
+    
+    <div class="form-text text-muted mb-2">
+        * หากกดแล้วเงียบ ให้ลองกดปุ่ม "เปิดใน Chrome" ด้านล่าง
+    </div>
+
+    <div class="text-center mt-2 position-relative">
+        <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
+    </div>
+    
+    <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
+        <i class="bi bi-magic"></i> อ่านชื่อ (AI)
+    </button>
+    
+    <button type="button" onclick="openExternal()" class="btn btn-outline-dark w-100 mt-3 btn-sm">
+        <i class="bi bi-box-arrow-up-right"></i> เปิดใน Chrome/Safari (ถ้ากล้องค้าง)
+    </button>
+</div>
+
+        <input type="file" 
+               accept="image/*" 
+               style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;"
+               onchange="processFile(this)">
+    </div>
+
+    <div class="text-center mt-2 position-relative">
+        <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
+    </div>
+    
+    <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
+        <i class="bi bi-magic"></i> อ่านชื่อ (AI)
+    </button>
+</div>
+
+                        <div class="text-center mt-2">
+                            <img id="preview" class="hidden shadow-sm border" style="max-width: 100%; border-radius: 8px;">
+                        </div>
+                        
+                        <button type="button" id="btn-scan" class="btn btn-primary w-100 mt-2 hidden fw-bold" onclick="scanImage()">
+                            <i class="bi bi-magic"></i> อ่านชื่อ (AI)
+                        </button>
+                    </div>
+
+                    <div id="mode-search" class="mb-3 hidden position-relative">
+                        <label class="form-label fw-bold small text-muted">Search Patient</label>
+                        <input type="text" id="patient-search" class="form-control" placeholder="พิมพ์ชื่อ หรือ HN..." onkeyup="filterPatients()">
+                        <div id="search-results" class="search-results hidden"></div>
+                    </div>
+
+                    <div class="row g-2 mb-4">
+                        <div class="col-12"><input type="text" id="p-name" class="form-control" placeholder="ชื่อ-สกุล" required></div>
+                        <div class="col-12"><input type="text" id="p-hn" class="form-control" placeholder="HN" required></div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 btn-lg shadow py-3 fw-bold">บันทึกข้อมูล</button>
+                </form>
+            </div>
+
+            <div id="tab-history" class="page-section hidden">
+                <h5>ประวัติการตรวจ</h5>
+                <div class="btn-group w-100 mb-3">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(7)">7 วัน</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(30)">1 เดือน</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadHistory(90)">3 เดือน</button>
+                </div>
+                <div id="history-list" class="list-group shadow-sm"></div>
+            </div>
+
+            <div id="tab-dashboard" class="page-section hidden">
+                <h5>Dashboard</h5>
+                <div class="row g-2 mb-3">
+                   <div class="col-6"><select id="filter-scope" class="form-select form-select-sm" onchange="updateDash()"><option value="me">ของฉัน</option><option value="all">ทั้งหมด</option></select></div>
+                   <div class="col-6"><select id="filter-year" class="form-select form-select-sm" onchange="updateDash()"></select></div>
+                   <div class="col-6 hidden" id="div-filter-doc"><select id="filter-doc" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกคน</option></select></div>
+                   <div class="col-6"><select id="filter-spec" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกสาขา</option></select></div>
+                </div>
+                <div class="card bg-primary text-white text-center p-3 mb-3">
+                    <h1 class="display-4 fw-bold" id="chart-total">0</h1><small>จำนวนเคส</small>
+                </div>
+                <canvas id="barChart" style="max-height: 200px;"></canvas>
+            </div>
+
+        </div> 
+    </div> 
+
+  </div>
+
+  <div id="bottom-nav" class="bottom-nav hidden">
+    <div class="nav-item active" id="nav-input" onclick="switchTab('input')"><i class="bi bi-pencil-square"></i><span>บันทึก</span></div>
+    <div class="nav-item" id="nav-history" onclick="switchTab('history')"><i class="bi bi-card-list"></i><span>ประวัติ</span></div>
+    <div class="nav-item" id="nav-dashboard" onclick="switchTab('dashboard')"><i class="bi bi-pie-chart"></i><span>สรุป</span></div>
+  </div>
+
+  <script>
+    // ************************************************
+    // ⚠️ แก้ URL และ LIFF ID
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbz8P4vW1tS1mfGMys4VwTWVWaV89kJZs9V9DNX3vcb_MzjKjvsSDfmwh2wlg1tgFHeS/exec'; 
+    const LIFF_ID = '2008753162-pqFRi41y'; 
+    // ************************************************
+
+    let currentDoctor = null;
+    let existingPatients = [];
+    let rawDashboardData = [];
+    let allDoctors = [];
+    let base64String = "";
+    let barChart = null;
+
+    window.onload = async function() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        const profile = await liff.getProfile();
+        checkUser(profile.userId);
+      } catch (err) { console.error(err); }
+    };
+
+    function checkUser(uid) {
+        fetch(`${WEB_APP_URL}?action=login&uid=${uid}`)
+        .then(res => res.json())
+        .then(res => {
+            if (res.status === 'success') {
+                currentDoctor = res.doctor;
+                startApp();
+            } else {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('unauth-screen').classList.remove('hidden');
+                document.getElementById('show-uid').innerText = res.uid;
+            }
+        }).catch(e => alert("Error: "+e));
+    }
+
+    function startApp() {
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('unauth-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('bottom-nav').classList.remove('hidden');
+        
+        document.getElementById('header-doc-name').innerText = currentDoctor.name;
+        
+        const container = document.getElementById('specialty-container'); container.innerHTML = "";
+        currentDoctor.specialties.forEach((spec, i) => {
+            container.innerHTML += `<div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="specialty" value="${spec.trim()}" ${i===0?'checked':''}><label class="form-check-label">${spec.trim()}</label></div>`;
+        });
+
+        loadExistingPatients();
+        loadAllDoctors();
+        loadDashboard();
+    }
+
+    // --- Process File (สำคัญมากสำหรับรูป) ---
+    window.processFile = function(input) {
+        const f = input.files[0];
+        if (f) {
+            // โชว์ปุ่ม Loading
+            const btnScan = document.getElementById('btn-scan');
+            btnScan.classList.remove('hidden');
+            btnScan.innerHTML = 'Processing...';
+            btnScan.disabled = true;
+
+            const r = new FileReader();
+            r.onload = function(e) {
+                const i = new Image();
+                i.onload = function() {
+                    const c = document.createElement('canvas');
+                    const ctx = c.getContext('2d');
+                    const maxW = 800; const scale = maxW / i.width;
+                    c.width = maxW; c.height = i.height * scale;
+                    ctx.drawImage(i, 0, 0, c.width, c.height);
+                    base64String = c.toDataURL('image/jpeg', 0.7).split(',')[1];
+                    
+                    document.getElementById('preview').src = c.toDataURL();
+                    document.getElementById('preview').classList.remove('hidden');
+                    
+                    btnScan.innerHTML = '<i class="bi bi-magic"></i> อ่านชื่อ (AI)';
+                    btnScan.disabled = false;
+                };
+                i.src = e.target.result;
+            };
+            r.readAsDataURL(f);
+        }
+        input.value = ''; 
+    }
+
+    // --- Helpers ---
+    window.switchTab = function(tab) {
+        document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+        document.getElementById('nav-' + tab).classList.add('active');
+        if(tab === 'history') loadHistory(7);
+        if(tab === 'dashboard') updateDash();
+        window.scrollTo(0,0);
+    }
+    
+    window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
+
+    window.toggleMode = function() {
+        const type = document.querySelector('input[name="visitType"]:checked').value;
+        if(type.includes('First')) { document.getElementById('mode-scan').classList.remove('hidden'); document.getElementById('mode-search').classList.add('hidden'); } 
+        else { document.getElementById('mode-scan').classList.add('hidden'); document.getElementById('mode-search').classList.remove('hidden'); }
+    }
+
+    // Load Data
+    function loadExistingPatients() { fetch(`${WEB_APP_URL}?action=getPatients&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) existingPatients=d; }); }
+    function loadAllDoctors() { fetch(`${WEB_APP_URL}?action=getDoctors`).then(r=>r.json()).then(d=>{ allDoctors=d; initDashFilters(); }); }
+
+    // Search
+    window.filterPatients = function() {
+        const q = document.getElementById('patient-search').value.toLowerCase();
+        const box = document.getElementById('search-results'); box.innerHTML="";
+        if(q.length < 2) { box.classList.add('hidden'); return; }
+        const found = existingPatients.filter(p => p.name.toLowerCase().includes(q) || String(p.hn).includes(q));
+        if(found.length > 0) {
+            box.classList.remove('hidden');
+            found.forEach(p => { box.innerHTML += `<div class="search-item" onclick="fillPatient('${p.name}', '${p.hn}')"><strong>${p.name}</strong> <span class="text-muted">(${p.hn})</span></div>`; });
+        } else { box.classList.add('hidden'); }
+    }
+    window.fillPatient = function(n, h) { document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; document.getElementById('search-results').classList.add('hidden'); document.getElementById('patient-search').value = ""; }
+
+    // History
+    window.loadHistory = function(days) {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active','bg-secondary','text-white'));
+        event.target.classList.add('active','bg-secondary','text-white');
+        const list = document.getElementById('history-list'); list.innerHTML = 'Loading...';
+        fetch(`${WEB_APP_URL}?action=getHistory&uid=${currentDoctor.uid}&days=${days}`).then(r=>r.json()).then(data => {
+            list.innerHTML = "";
+            if(data.length === 0) list.innerHTML = "<p class='text-center text-muted mt-3'>ไม่พบข้อมูล</p>";
+            else data.forEach(item => { const sn = item.patient.replace(/'/g, "\\'"); const sh = item.hn.replace(/'/g, "\\'"); list.innerHTML += `<div class="list-group-item d-flex justify-content-between align-items-center"><div><h6 class="mb-0 text-primary fw-bold">${item.patient}</h6><small>${item.date}</small></div><button class="btn btn-outline-primary btn-sm" onclick="selectHistory('${sn}','${sh}')">Follow</button></div>`; });
+        });
+    }
+    window.selectHistory = function(n, h) { switchTab('input'); document.getElementById('v2').click(); document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; }
+
+    // Dashboard
+    function initDashFilters() {
+        const docSelect = document.getElementById('filter-doc'); docSelect.innerHTML = '<option value="all">ทุกคน</option>';
+        if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
+        const yearSelect = document.getElementById('filter-year'); const y = new Date().getFullYear();
+        yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
+    }
+    function loadDashboard() { fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) rawDashboardData=d; }); }
+    window.updateDash = function() {
+        const scope = document.getElementById('filter-scope').value; const year = parseInt(document.getElementById('filter-year').value);
+        const fDoc = document.getElementById('filter-doc').value; const fSpec = document.getElementById('filter-spec').value;
+        document.getElementById('div-filter-doc').classList.toggle('hidden', scope !== 'all');
+        const filtered = rawDashboardData.filter(item => {
+            const d = new Date(item.date);
+            if (d.getFullYear() !== year) return false;
+            if (scope === 'me' && item.doctor !== currentDoctor.name) return false;
+            if (scope === 'all' && fDoc !== 'all' && item.doctor !== fDoc) return false;
+            if (fSpec !== 'all' && item.specialty.trim() !== fSpec) return false;
+            return true;
+        });
+        document.getElementById('chart-total').innerText = filtered.length;
+        let months = Array(12).fill(0); 
+        filtered.forEach(item => { months[new Date(item.date).getMonth()]++; });
+        const ctx1 = document.getElementById('barChart'); if(barChart) barChart.destroy();
+        barChart = new Chart(ctx1, { type: 'bar', data: { labels:['J','F','M','A','M','J','J','A','S','O','N','D'], datasets:[{label:'Cases', data:months, backgroundColor:'#0d6efd'}] } });
+    }
+
+    // Submit
+    document.getElementById('consult-form').onsubmit = function(e) {
+        e.preventDefault();
+        document.getElementById('loading').classList.remove('hidden');
+        const payload = {
+            doctorName: currentDoctor.name,
+            specialty: document.querySelector('input[name="specialty"]:checked').value,
+            patientName: document.getElementById('p-name').value,
+            hn: document.getElementById('p-hn').value,
+            visitType: document.querySelector('input[name="visitType"]:checked').value
+        };
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกเรียบร้อย"); location.reload(); });
+    };
+
+    window.scanImage = function() { 
+        const btn = document.getElementById('btn-scan'); const old = btn.innerHTML;
+        btn.innerHTML = 'Reading...'; btn.disabled = true;
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'analyze', image:base64String})})
+        .then(r=>r.json()).then(res=>{ 
+            document.getElementById('p-name').value = res.name || ""; document.getElementById('p-hn').value = res.hn || ""; 
+            btn.innerHTML = old; btn.disabled = false;
+        }).catch(() => { alert("AI Failed"); btn.innerHTML = old; btn.disabled = false; });
+    }
+
+// ฟังก์ชันเปิด Browser ภายนอก (แก้ปัญหา LIFF กล้องค้าง)
+    window.openExternal = function() {
+        if (liff.isInClient()) {
+            liff.openWindow({
+                url: window.location.href,
+                external: true
+            });
+        } else {
+            alert("คุณเปิดอยู่ใน Browser อยู่แล้วครับ");
+        }
+    }
+  </script>
+</body>
+</html>
