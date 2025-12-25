@@ -214,7 +214,7 @@
         });
     }
 
-    function renderTables() {
+function renderTables() {
         const tbodyPA = document.getElementById('tbody-pa');
         const tbodyGI = document.getElementById('tbody-gi');
         
@@ -227,8 +227,7 @@
         }
 
         currentData.forEach((doc, idx) => {
-            // 1. Render Tab General PA
-            // คำนวณเฉพาะ First + Follow
+            // 1. Render Tab General PA (แสดงทุกคน)
             const scorePA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
             
             tbodyPA.innerHTML += `
@@ -242,25 +241,34 @@
                 </tr>
             `;
 
-            // 2. Render Tab GI Stats
-            // คำนวณเฉพาะ GI
-            const scoreGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
+            // 2. Render Tab GI Stats (กรองเฉพาะคนที่เป็น GI)
+            // เช็คว่าใน specialties มีคำว่า GI หรือ Gastro หรือไม่ (ไม่สนตัวพิมพ์เล็กใหญ่)
+            const specs = (doc.specialties || "").toLowerCase();
+            const isGI = specs.includes('gi') || specs.includes('gastro');
 
-            tbodyGI.innerHTML += `
-                <tr>
-                    <td class="fw-bold px-3">${doc.name}</td>
-                    <td class="text-center text-danger bg-light">${doc.c_ugib}</td>
-                    <td class="text-center text-danger bg-light">${doc.c_other}</td>
-                    <td class="text-center text-danger bg-light">${doc.c_non}</td>
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_ugib}" onchange="updateVal(${idx}, 'w_ugib', this.value)"></td>
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_other}" onchange="updateVal(${idx}, 'w_other', this.value)"></td>
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_non}" onchange="updateVal(${idx}, 'w_non', this.value)"></td>
-                    <td class="total-col text-end text-success px-3" id="scoreGI_${idx}">${scoreGI.toFixed(1)}</td>
-                </tr>
-            `;
+            if (isGI) { // <--- เงื่อนไขกรองตรงนี้ครับ
+                const scoreGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
+
+                tbodyGI.innerHTML += `
+                    <tr>
+                        <td class="fw-bold px-3">${doc.name}</td>
+                        <td class="text-center text-danger bg-light">${doc.c_ugib}</td>
+                        <td class="text-center text-danger bg-light">${doc.c_other}</td>
+                        <td class="text-center text-danger bg-light">${doc.c_non}</td>
+                        <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_ugib}" onchange="updateVal(${idx}, 'w_ugib', this.value)"></td>
+                        <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_other}" onchange="updateVal(${idx}, 'w_other', this.value)"></td>
+                        <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_non}" onchange="updateVal(${idx}, 'w_non', this.value)"></td>
+                        <td class="total-col text-end text-success px-3" id="scoreGI_${idx}">${scoreGI.toFixed(1)}</td>
+                    </tr>
+                `;
+            }
         });
+        
+        // ถ้าไม่มีหมอ GI เลย ให้ขึ้นข้อความบอก
+        if (tbodyGI.innerHTML === "") {
+             tbodyGI.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">ไม่พบแพทย์สาขา GI ในรายการนี้</td></tr>`;
+        }
     }
-
     // ฟังก์ชันอัปเดตค่า (ทำงานร่วมกันทั้ง 2 Tabs)
     window.updateVal = function(idx, field, val) {
         currentData[idx][field] = parseFloat(val) || 0;
