@@ -150,48 +150,76 @@
     let currentData = [];
 
     window.onload = async function() {
-        // Init Date Dropdowns
-        const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-        const mStart = document.getElementById('sel-month-start');
-        const mEnd = document.getElementById('sel-month-end');
-        const curMonth = new Date().getMonth();
-        
-        months.forEach((n, i) => {
-            mStart.innerHTML += `<option value="${i+1}" ${i === 0 ? 'selected' : ''}>${n}</option>`; 
-            mEnd.innerHTML += `<option value="${i+1}" ${i === curMonth ? 'selected' : ''}>${n}</option>`; 
-        });
+        // 1. Setup Dropdowns (Date/Year) - ทำงานทันที
+        setupDropdowns();
 
-        const y = document.getElementById('sel-year');
-        const cy = new Date().getFullYear();
-        y.innerHTML = `<option value="${cy}">${cy}</option><option value="${cy-1}">${cy-1}</option>`;
-
-        // LIFF Auth
+        // 2. LIFF Auth
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const profile = await liff.getProfile();
         currentAdmin = profile.userId;
         document.getElementById('admin-name').innerText = profile.displayName;
 
-        initDepartments();
+        // 3. 🔥 One-Shot Load (โหลดทีเดียวจบ)
+        initAdminApp();
     };
 
-    function initDepartments() {
-        fetch(`${WEB_APP_URL}?action=getDoctors`)
-        .then(r => r.json())
-        .then(data => {
-            const specSet = new Set();
-            data.forEach(d => {
-                if (d.specialties) {
-                    let specs = Array.isArray(d.specialties) ? d.specialties : String(d.specialties).split(',');
-                    specs.forEach(s => specSet.add(s.trim()));
-                }
-            });
-            const selSpec = document.getElementById('sel-spec');
-            specSet.forEach(s => { if(s) selSpec.innerHTML += `<option value="${s}">${s}</option>`; });
-            loadData();
+    function setupDropdowns() {
+        const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+        const mStart = document.getElementById('sel-month-start');
+        const mEnd = document.getElementById('sel-month-end');
+        const curMonth = new Date().getMonth();
+        
+        mStart.innerHTML = ""; mEnd.innerHTML = "";
+        months.forEach((n, i) => {
+            mStart.innerHTML += `<option value="${i+1}" ${i === 0 ? 'selected' : ''}>${n}</option>`; // Default ม.ค.
+            mEnd.innerHTML += `<option value="${i+1}" ${i === curMonth ? 'selected' : ''}>${n}</option>`; // Default เดือนปัจจุบัน
         });
+
+        const y = document.getElementById('sel-year');
+        const cy = new Date().getFullYear();
+        y.innerHTML = `<option value="${cy}">${cy}</option><option value="${cy-1}">${cy-1}</option>`;
     }
 
+    function initAdminApp() {
+        const start = document.getElementById('sel-month-start').value;
+        const end = document.getElementById('sel-month-end').value;
+        const year = document.getElementById('sel-year').value;
+
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('app').classList.add('d-none');
+
+        // เรียก Server รอบเดียว
+        fetch(`${WEB_APP_URL}?action=loadAdminApp&uid=${currentAdmin}&start=${start}&end=${end}&year=${year}`)
+        .then(r => r.json())
+        .then(res => {
+            if(res.error) { alert("Access Denied"); return; }
+            
+            // 1. สร้าง Dropdown แผนก (จากข้อมูล res.doctors)
+            const specSet = new Set();
+            if(res.doctors) {
+                res.doctors.forEach(d => {
+                    if (d.specialties) {
+                        let specs = Array.isArray(d.specialties) ? d.specialties : String(d.specialties).split(',');
+                        specs.forEach(s => specSet.add(s.trim()));
+                    }
+                });
+            }
+            const selSpec = document.getElementById('sel-spec');
+            selSpec.innerHTML = '<option value="All">All Departments</option>';
+            specSet.forEach(s => { if(s) selSpec.innerHTML += `<option value="${s}">${s}</option>`; });
+
+            // 2. แสดงตารางข้อมูล (จากข้อมูล res.stats)
+            currentData = res.stats || [];
+            renderTables();
+
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('app').classList.remove('d-none');
+
+        }).catch(err => alert("Connection Error: " + err));
+    }
+
+    // ฟังก์ชันนี้เอาไว้กดปุ่ม Search (โหลดเฉพาะข้อมูลสถิติใหม่)
     function loadData() {
         const start = document.getElementById('sel-month-start').value;
         const end = document.getElementById('sel-month-end').value;
@@ -208,18 +236,17 @@
         .then(data => {
             if(data.error) { alert("Access Denied"); return; }
             currentData = data;
-            renderTables(); // เรียกฟังก์ชันใหม่ที่เรนเดอร์ 2 ตาราง
+            renderTables();
             document.getElementById('loading').classList.add('d-none');
             document.getElementById('app').classList.remove('d-none');
         });
     }
 
-function renderTables() {
+    function renderTables() {
         const tbodyPA = document.getElementById('tbody-pa');
         const tbodyGI = document.getElementById('tbody-gi');
         
-        tbodyPA.innerHTML = "";
-        tbodyGI.innerHTML = "";
+        tbodyPA.innerHTML = ""; tbodyGI.innerHTML = "";
 
         if (currentData.length === 0) {
             tbodyPA.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>`;
@@ -227,9 +254,8 @@ function renderTables() {
         }
 
         currentData.forEach((doc, idx) => {
-            // 1. Render Tab General PA (แสดงทุกคน)
+            // Tab 1: General
             const scorePA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
-            
             tbodyPA.innerHTML += `
                 <tr>
                     <td class="fw-bold px-3">${doc.name}</td>
@@ -241,14 +267,12 @@ function renderTables() {
                 </tr>
             `;
 
-            // 2. Render Tab GI Stats (กรองเฉพาะคนที่เป็น GI)
-            // เช็คว่าใน specialties มีคำว่า GI หรือ Gastro หรือไม่ (ไม่สนตัวพิมพ์เล็กใหญ่)
+            // Tab 2: GI Only
             const specs = (doc.specialties || "").toLowerCase();
             const isGI = specs.includes('gi') || specs.includes('gastro');
 
-            if (isGI) { // <--- เงื่อนไขกรองตรงนี้ครับ
+            if (isGI) { 
                 const scoreGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
-
                 tbodyGI.innerHTML += `
                     <tr>
                         <td class="fw-bold px-3">${doc.name}</td>
@@ -264,29 +288,23 @@ function renderTables() {
             }
         });
         
-        // ถ้าไม่มีหมอ GI เลย ให้ขึ้นข้อความบอก
         if (tbodyGI.innerHTML === "") {
              tbodyGI.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">ไม่พบแพทย์สาขา GI ในรายการนี้</td></tr>`;
         }
     }
-    // ฟังก์ชันอัปเดตค่า (ทำงานร่วมกันทั้ง 2 Tabs)
+
     window.updateVal = function(idx, field, val) {
         currentData[idx][field] = parseFloat(val) || 0;
-        
-        // คำนวณใหม่ทั้ง 2 ฝั่งเพื่อความชัวร์
         const doc = currentData[idx];
         const newPA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
         const newGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
 
-        // อัปเดตตัวเลขบนหน้าจอ
         const elPA = document.getElementById(`scorePA_${idx}`);
         const elGI = document.getElementById(`scoreGI_${idx}`);
-        
         if(elPA) elPA.innerText = newPA.toFixed(1);
         if(elGI) elGI.innerText = newGI.toFixed(1);
     }
 
-    // บันทึกทั้งหมด (ส่งข้อมูลทั้งก้อนกลับไป)
     window.saveWeights = function() {
         const payload = currentData.map(d => ({
             docUID: d.uid,
