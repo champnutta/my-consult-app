@@ -209,24 +209,37 @@
     let allDoctors = [];
     let base64String = "";
     let barChart = null;
+    
+    // ตัวแปรเช็คสถานะว่าโหลดข้อมูล Tab นั้นหรือยัง
+    let isHistoryLoaded = false;
+    let isDashLoaded = false;
 
-    Chart.register(ChartDataLabels);
+    // Register Plugin
+    if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
     window.onload = async function() {
       try {
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const profile = await liff.getProfile();
-        checkUser(profile.userId);
+        
+        // 🔥 เรียกฟังก์ชันใหม่ 'loadApp' ทีเดียวจบ
+        initApp(profile.userId);
+        
       } catch (err) { console.error(err); }
     };
 
-    function checkUser(uid) {
-        fetch(`${WEB_APP_URL}?action=login&uid=${uid}`)
+    function initApp(uid) {
+        // เรียก Server รอบเดียว
+        fetch(`${WEB_APP_URL}?action=loadApp&uid=${uid}`)
         .then(res => res.json())
         .then(res => {
             if (res.status === 'success') {
+                // รับของ 3 อย่างพร้อมกัน
                 currentDoctor = res.doctor;
+                existingPatients = res.patients; // คนไข้มาแล้ว
+                allDoctors = res.doctors; // หมอมาแล้ว
+                
                 startApp();
             } else {
                 document.getElementById('loading').classList.add('hidden');
@@ -244,9 +257,9 @@
         
         document.getElementById('header-doc-name').innerText = currentDoctor.name;
         
+        // Render Specialty
         const container = document.getElementById('specialty-container'); 
         container.innerHTML = "";
-        
         currentDoctor.specialties.forEach((spec, i) => {
             const div = document.createElement('div');
             div.className = "form-check form-check-inline";
@@ -267,23 +280,31 @@
             container.appendChild(div);
         });
         checkGI();
-        loadExistingPatients();
-        loadAllDoctors();
-        loadDashboard();
+
+        // Init Dashboard Filters (เตรียมรอไว้ก่อน แต่ยังไม่โหลดกราฟ)
+        initDashFilters();
     }
 
-    function checkGI() {
-        const selected = document.querySelector('input[name="specialty"]:checked');
-        const giDiv = document.getElementById('div-gi-diag');
-        const giSelect = document.getElementById('gi-diagnosis');
-        if (selected && selected.value.toUpperCase() === 'GI') {
-            giDiv.classList.remove('hidden'); giSelect.required = true;
-        } else {
-            giDiv.classList.add('hidden'); giSelect.value = ""; giSelect.required = false;
+    // --- Tab Switching (LAZY LOAD) ---
+    window.switchTab = function(tab) {
+        document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.remove('hidden');
+        document.getElementById('nav-' + tab).classList.add('active');
+        
+        // โหลดข้อมูลเมื่อกดดูเท่านั้น (Lazy Load)
+        if(tab === 'history') {
+             if(!isHistoryLoaded) { loadHistory(7); isHistoryLoaded = true; }
         }
+        if(tab === 'dashboard') {
+             if(!isDashLoaded) { loadDashboard(); isDashLoaded = true; }
+             else updateDash(); // ถ้าโหลดแล้ว แค่อัปเดต filter
+        }
+        
+        window.scrollTo(0,0);
     }
-
-    // --- Image Processing & AUTO SCAN ---
+    
+    // --- Image Processing ---
     window.processFile = function(input) {
         const f = input.files[0];
         if (f) {
@@ -304,18 +325,15 @@
                     c.width = maxW; c.height = i.height * scale;
                     ctx.drawImage(i, 0, 0, c.width, c.height);
                     base64String = c.toDataURL('image/jpeg', 0.7).split(',')[1];
-                    
                     document.getElementById('preview').src = c.toDataURL();
                     document.getElementById('preview').classList.remove('hidden');
-                    
-                    // AUTO SCAN TRIGGER
                     scanImage();
                 };
                 i.src = e.target.result;
             };
             r.readAsDataURL(f);
         }
-        // ไม่ reset value เพื่อให้ UX ไม่สะดุด
+        input.value = '';
     }
 
     window.scanImage = function() { 
@@ -328,14 +346,12 @@
         .then(r=>r.json()).then(res=>{ 
             document.getElementById('p-name').value = res.name || ""; 
             document.getElementById('p-hn').value = res.hn || ""; 
-            
             btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> อ่านเรียบร้อย';
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-success');
             btn.disabled = false;
-            
         }).catch(() => { 
-            btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> AI อ่านไม่ออก (กรุณากรอกเอง)';
+            btn.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i> AI อ่านไม่ออก';
             btn.classList.remove('btn-primary');
             btn.classList.add('btn-danger');
             btn.disabled = false;
@@ -343,22 +359,19 @@
     }
 
     // --- Helpers ---
-    window.switchTab = function(tab) {
-        document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-        document.getElementById('tab-' + tab).classList.remove('hidden');
-        document.getElementById('nav-' + tab).classList.add('active');
-        if(tab === 'history') loadHistory(7);
-        if(tab === 'dashboard') updateDash();
-        window.scrollTo(0,0);
+    window.checkGI = function() {
+        const selected = document.querySelector('input[name="specialty"]:checked');
+        const giDiv = document.getElementById('div-gi-diag');
+        const giSelect = document.getElementById('gi-diagnosis');
+        if (selected && selected.value.toUpperCase() === 'GI') {
+            giDiv.classList.remove('hidden'); giSelect.required = true;
+        } else {
+            giDiv.classList.add('hidden'); giSelect.value = ""; giSelect.required = false;
+        }
     }
-    
+
     window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
-    
-    window.openExternal = function() {
-        if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } 
-        else { alert("คุณเปิด Browser อยู่แล้ว"); }
-    }
+    window.openExternal = function() { if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } else { alert("เปิดอยู่แล้ว"); } }
 
     window.toggleMode = function() {
         const type = document.querySelector('input[name="visitType"]:checked').value;
@@ -366,11 +379,9 @@
         else { document.getElementById('mode-scan').classList.add('hidden'); document.getElementById('mode-search').classList.remove('hidden'); }
     }
 
-    // Data Loaders
-    function loadExistingPatients() { fetch(`${WEB_APP_URL}?action=getPatients&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) existingPatients=d; }); }
-    function loadAllDoctors() { fetch(`${WEB_APP_URL}?action=getDoctors`).then(r=>r.json()).then(d=>{ allDoctors=d; initDashFilters(); }); }
+    // --- Data Loaders (Search & List) ---
+    // ไม่ต้องมี loadExistingPatients() และ loadAllDoctors() แล้ว เพราะโหลดมาตั้งแต่แรกใน initApp
 
-    // Search
     window.filterPatients = function() {
         const q = document.getElementById('patient-search').value.toLowerCase();
         const box = document.getElementById('search-results'); box.innerHTML="";
@@ -383,11 +394,14 @@
     }
     window.fillPatient = function(n, h) { document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; document.getElementById('search-results').classList.add('hidden'); document.getElementById('patient-search').value = ""; }
 
-    // History
+    // --- History (โหลดเมื่อกด Tab) ---
     window.loadHistory = function(days) {
         document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active','bg-secondary','text-white'));
-        event.target.classList.add('active','bg-secondary','text-white');
-        const list = document.getElementById('history-list'); list.innerHTML = '<p class="text-center mt-3 small">กำลังโหลด...</p>';
+        if(event) event.target.classList.add('active','bg-secondary','text-white');
+        
+        const list = document.getElementById('history-list'); 
+        list.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span><br><small>กำลังโหลดประวัติ...</small></div>';
+        
         fetch(`${WEB_APP_URL}?action=getHistory&uid=${currentDoctor.uid}&days=${days}`).then(r=>r.json()).then(data => {
             list.innerHTML = "";
             if(data.length === 0) { document.getElementById('no-history').classList.remove('hidden'); }
@@ -402,16 +416,30 @@
     }
     window.selectHistory = function(n, h) { switchTab('input'); document.getElementById('v2').click(); document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; }
 
-    // Dashboard
+    // --- Dashboard (โหลดเมื่อกด Tab) ---
     function initDashFilters() {
-        const docSelect = document.getElementById('filter-doc'); docSelect.innerHTML = '<option value="all">ทุกคน</option>';
-        if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
+        const docSelect = document.getElementById('filter-doc'); 
+        if(docSelect) {
+             docSelect.innerHTML = '<option value="all">ทุกคน</option>';
+             if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
+        }
         const yearSelect = document.getElementById('filter-year'); const y = new Date().getFullYear();
-        yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
+        if(yearSelect) yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
     }
-    function loadDashboard() { fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ if(!d.error) rawDashboardData=d; }); }
     
-    // Updated Dashboard
+    function loadDashboard() { 
+        // โชว์ Loading ในกราฟก่อน
+        const ctx = document.getElementById('barChart');
+        // ... (Optional: show loading UI) ...
+        
+        fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ 
+            if(!d.error) {
+                rawDashboardData=d; 
+                updateDash();
+            }
+        }); 
+    }
+    
     window.updateDash = function() {
         const scope = document.getElementById('filter-scope').value; 
         const year = parseInt(document.getElementById('filter-year').value);
@@ -483,3 +511,4 @@
   </script>
 </body>
 </html>
+
