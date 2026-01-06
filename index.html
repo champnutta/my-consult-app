@@ -148,9 +148,9 @@
                         <div class="row g-2">
                             <div class="col-5">
                                 <select id="filter-status" class="form-select form-select-sm" onchange="renderPatientList()">
-                                    <option value="Admit">Admit Only</option>
+                                    <option value="Active">Active Only</option>
                                     <option value="All">All Status</option>
-                                    <option value="Discharge">Discharged</option>
+                                    <option value="Offservice">Offservice</option>
                                 </select>
                             </div>
                             <div class="col-7">
@@ -366,10 +366,10 @@
         document.getElementById('no-patients').classList.add('hidden');
 
         filtered.forEach(p => {
-            const isAdmit = p.status === 'Admit';
-            const badgeClass = isAdmit ? 'bg-success' : 'bg-secondary';
-            const btnClass = isAdmit ? 'btn-outline-danger' : 'btn-outline-success';
-            const btnText = isAdmit ? 'D/C' : 'Admit';
+            const isActive = p.status === 'Active';
+            const badgeClass = isActive ? 'bg-success' : 'bg-secondary';
+            const btnClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
+            const btnText = isActive ? 'Offservice' : 'Active';
             const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
 
             const card = `
@@ -400,9 +400,9 @@
         });
     }
 
-    // Toggle Status (Admit/Discharge)
+    // Toggle Status (Active/Offservice)
     window.toggleStatus = function(hn, currentStatus) {
-        const newStatus = currentStatus === 'Admit' ? 'Discharge' : 'Admit';
+        const newStatus = currentStatus === 'Active' ? 'Offservice' : 'Active';
         if(!confirm(`ยืนยันเปลี่ยนสถานะเป็น ${newStatus}?`)) return;
 
         // Optimistic UI Update (แก้หน้าจอเลยไม่ต้องรอ)
@@ -620,4 +620,5 @@
   </script>
 </body>
 </html>
+
 
