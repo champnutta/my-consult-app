@@ -360,9 +360,12 @@
         const container = document.getElementById('patient-list-container');
         container.innerHTML = "";
 
+        // กรองข้อมูล
         const filtered = myPatientsRaw.filter(p => {
             if (fStatus !== 'All' && p.status !== fStatus) return false;
-            if (fWard !== 'All' && p.ward !== fWard) return false;
+            // เช็คเพิ่ม: ถ้า p.ward ไม่มี ให้ถือว่าเป็น '-' เพื่อให้กรองได้ถูกต้อง
+            const pWard = p.ward || '-'; 
+            if (fWard !== 'All' && pWard !== fWard) return false;
             return true;
         });
 
@@ -377,7 +380,13 @@
             const badgeClass = isActive ? 'bg-success' : 'bg-secondary';
             const btnClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
             const btnText = isActive ? 'Offservice' : 'Active';
+            
+            // ป้องกัน Ward เป็น null/undefined
             const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
+            const wardValue = p.ward ? p.ward : ''; // ค่าสำหรับส่งเข้า Modal
+
+            // ป้องกันชื่อมีเครื่องหมาย ' (Single Quote) ทำให้ Error
+            const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
 
             const card = `
                 <div class="card mb-2 border-0 shadow-sm">
@@ -385,7 +394,7 @@
                         <div style="width: 60%;">
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <span class="badge ${badgeClass} rounded-pill" style="font-size: 0.7rem;">${p.status}</span>
-                                <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${p.ward}')">
+                                <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${wardValue}')">
                                     <i class="bi bi-geo-alt-fill"></i> ${wardText} <i class="bi bi-pencil-square text-muted small"></i>
                                 </small>
                             </div>
@@ -393,7 +402,7 @@
                             <small class="text-muted">HN: ${p.hn}</small>
                         </div>
                         <div class="d-flex flex-column gap-1 text-end" style="width: 35%;">
-                             <button class="btn btn-sm btn-light border" onclick="selectHistory('${p.name.replace(/'/g,"\\'")}','${p.hn}')">
+                             <button class="btn btn-sm btn-light border" onclick="selectHistory('${safeName}','${p.hn}')">
                                 <i class="bi bi-clipboard-plus"></i> Follow up
                              </button>
                              <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${p.hn}', '${p.status}')">
@@ -628,6 +637,7 @@
   </script>
 </body>
 </html>
+
 
 
 
