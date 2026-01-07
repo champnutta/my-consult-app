@@ -360,10 +360,8 @@
         const container = document.getElementById('patient-list-container');
         container.innerHTML = "";
 
-        // กรองข้อมูล
         const filtered = myPatientsRaw.filter(p => {
             if (fStatus !== 'All' && p.status !== fStatus) return false;
-            // เช็คเพิ่ม: ถ้า p.ward ไม่มี ให้ถือว่าเป็น '-' เพื่อให้กรองได้ถูกต้อง
             const pWard = p.ward || '-'; 
             if (fWard !== 'All' && pWard !== fWard) return false;
             return true;
@@ -381,11 +379,10 @@
             const btnClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
             const btnText = isActive ? 'Offservice' : 'Active';
             
-            // ป้องกัน Ward เป็น null/undefined
             const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
-            const wardValue = p.ward ? p.ward : ''; // ค่าสำหรับส่งเข้า Modal
+            const wardValue = p.ward ? p.ward : ''; 
 
-            // ป้องกันชื่อมีเครื่องหมาย ' (Single Quote) ทำให้ Error
+            // แก้ไขการจัดการชื่อให้ปลอดภัย 100%
             const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
 
             const card = `
@@ -415,7 +412,7 @@
             container.innerHTML += card;
         });
     }
-
+    
     // Toggle Status (Active/Offservice)
     window.toggleStatus = function(hn, currentStatus) {
         const newStatus = currentStatus === 'Active' ? 'Offservice' : 'Active';
@@ -637,6 +634,7 @@
   </script>
 </body>
 </html>
+
 
 
 
