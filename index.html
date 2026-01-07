@@ -94,6 +94,11 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                          <label class="small text-muted">Date (วันที่ตรวจ)</label>
+                          <input type="date" id="visit-date" class="form-control">
+                    </div>
+                  
                     <div id="mode-scan" class="mb-3">
                         <label class="form-label fw-bold small text-muted text-uppercase">New Case (Photo)</label>
                         <div class="d-flex gap-2">
@@ -276,6 +281,8 @@
         document.getElementById('main-app').classList.remove('hidden');
         document.getElementById('bottom-nav').classList.remove('hidden');
         document.getElementById('header-doc-name').innerText = currentDoctor.name;
+        document.getElementById('visit-date').valueAsDate = new Date();
+
         
         // Render Specialty
         const container = document.getElementById('specialty-container'); 
@@ -612,7 +619,8 @@
             patientName: document.getElementById('p-name').value,
             hn: document.getElementById('p-hn').value,
             visitType: document.querySelector('input[name="visitType"]:checked').value,
-            diagnosis: diagnosisVal
+            diagnosis: diagnosisVal,
+            visitDate: document.getElementById('visit-date').value
         };
         fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกข้อมูลเรียบร้อย ✅"); location.reload(); });
     };
@@ -620,5 +628,6 @@
   </script>
 </body>
 </html>
+
 
 
