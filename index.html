@@ -272,22 +272,36 @@
     };
 
     function initApp(uid) {
-        fetch(`${WEB_APP_URL}?action=loadApp&uid=${uid}`)
-        .then(res => res.json())
-        .then(res => {
-            if (res.status === 'success') {
-                currentDoctor = res.doctor;
-                existingPatients = res.patients;
-                allDoctors = res.doctors;
-                startApp();
-            } else {
-                document.getElementById('loading').classList.add('hidden');
-                document.getElementById('unauth-screen').classList.remove('hidden');
-                document.getElementById('show-uid').innerText = res.uid;
-            }
-        }).catch(e => alert("Connection Error: "+e));
-    }
+    // แสดง Console เพื่อ Debug
+    console.log("Checking User:", uid);
 
+    fetch(`${WEB_APP_URL}?action=loadApp&uid=${uid}`)
+    .then(res => res.json())
+    .then(res => {
+        console.log("Response:", res); // ดูค่าที่ส่งกลับมา
+
+        if (res.status === 'success') {
+            // กรณี: เป็นสมาชิกแล้ว -> โหลดข้อมูล
+            currentDoctor = res.doctor;
+            existingPatients = res.patients;
+            allDoctors = res.doctors;
+            startApp();
+        } else {
+            // กรณี: ยังไม่ได้ลงทะเบียน (หรือ Error อื่นๆ) -> หยุดหมุนและโชว์ UID
+            document.getElementById('loading').classList.add('hidden'); // ปิด Spinner
+            document.getElementById('unauth-screen').classList.remove('hidden'); // เปิดหน้าจอ Access Denied
+            document.getElementById('main-app').classList.add('hidden'); // ซ่อนแอปหลัก (กันพลาด)
+            
+            // แสดง UID ให้ copy
+            document.getElementById('show-uid').innerText = res.uid || uid || "Unknown UID"; 
+        }
+    })
+    .catch(e => {
+        // กรณี: พังจริงๆ (เช่น เน็ตหลุด, Script Error)
+        document.getElementById('loading').innerHTML = 
+            `<div class="text-danger p-3">Error: ${e}<br><button class="btn btn-outline-danger btn-sm mt-2" onclick="location.reload()">Retry</button></div>`;
+    });
+}
     function startApp() {
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('unauth-screen').classList.add('hidden');
@@ -739,4 +753,5 @@
   </script>
 </body>
 </html>
+
 
