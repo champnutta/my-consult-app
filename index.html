@@ -515,15 +515,26 @@
     }
 
     window.checkGI = function() {
+    // ใส่ try-catch ครอบเผื่อ element ยังไม่ render
+    try {
         const selected = document.querySelector('input[name="specialty"]:checked');
         const giDiv = document.getElementById('div-gi-diag');
         const giSelect = document.getElementById('gi-diagnosis');
-        if (selected && selected.value.toUpperCase() === 'GI') {
-            giDiv.classList.remove('hidden'); giSelect.required = true;
+        
+        if (!giDiv || !giSelect) return; // ถ้าหา element ไม่เจอให้จบเลย อย่า error
+
+        if (selected && (selected.value.trim().toUpperCase() === 'GI' || selected.value.includes('GI'))) {
+            giDiv.classList.remove('hidden'); 
+            giSelect.required = true;
         } else {
-            giDiv.classList.add('hidden'); giSelect.value = ""; giSelect.required = false;
+            giDiv.classList.add('hidden'); 
+            giSelect.value = ""; 
+            giSelect.required = false;
         }
+    } catch (e) {
+        console.warn("GI Check Error:", e);
     }
+}
 
     window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
     window.openExternal = function() { if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } else { alert("เปิดอยู่แล้ว"); } }
@@ -557,10 +568,22 @@
     }
     
     function loadDashboard() { 
-        fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`).then(r=>r.json()).then(d=>{ 
-            if(!d.error) { rawDashboardData=d; updateDash(); }
-        }); 
-    }
+    // แสดง loading (ถ้ามี element loading เฉพาะส่วนนี้)
+    fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`)
+    .then(r => r.json())
+    .then(d => { 
+        if(!d.error) { 
+            rawDashboardData = d; 
+            updateDash(); 
+        } else {
+            console.error("Server Error:", d.error);
+        }
+    })
+    .catch(e => {
+        console.error("Dash Load Error:", e);
+        // ถ้าท่านมี Loading Spinner ของ Dashboard ให้สั่งปิดตรงนี้
+    }); 
+}
     
     window.updateDash = function() {
         const scope = document.getElementById('filter-scope').value; 
@@ -570,14 +593,24 @@
         document.getElementById('div-filter-doc').classList.toggle('hidden', scope !== 'all');
         
         const filtered = rawDashboardData.filter(item => {
-            const d = new Date(item.date);
-            if (d.getFullYear() !== year) return false;
-            if (scope === 'me' && item.doctor !== currentDoctor.name) return false;
-            if (scope === 'all' && fDoc !== 'all' && item.doctor !== fDoc) return false;
-            if (fSpec !== 'all' && item.specialty.trim() !== fSpec) return false;
-            return true;
-        });
-        
+        const d = new Date(item.date);
+        if (d.getFullYear() !== year) return false;
+        if (scope === 'me' && item.doctor !== currentDoctor.name) return false;
+    
+    // --- จุดที่แก้ ---
+    // 1. กรองหมอ (ถ้ามีการเลือก)
+        if (scope === 'all' && fDoc !== 'all' && item.doctor !== fDoc) return false;
+
+    // 2. กรองสาขา (Specialty) - ใส่ trim() ทั้งสองฝั่งเพื่อให้แม่นยำ
+        if (fSpec !== 'all') {
+       // กันเหนียวเผื่อค่าเป็น null
+       const itemSpec = (item.specialty || "").toString().trim(); 
+       if (itemSpec !== fSpec.trim()) return false;
+    }
+    // ----------------
+    
+    return true;
+});
         document.getElementById('chart-total').innerText = filtered.length;
         
         let firstVisitData = Array(12).fill(0);
@@ -634,6 +667,7 @@
   </script>
 </body>
 </html>
+
 
 
 
