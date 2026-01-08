@@ -137,7 +137,17 @@
                     <div class="row g-2 mb-4">
                         <div class="col-12"><label class="small text-muted">ชื่อ-นามสกุล</label><input type="text" id="p-name" class="form-control" placeholder="ระบุชื่อคนไข้" required></div>
                         <div class="col-12"><label class="small text-muted">HN</label><input type="text" id="p-hn" class="form-control" placeholder="ระบุเลข HN" required></div>
+                        
+                        <div class="col-6">
+                            <label class="small text-muted">Ward (ตึก/ชั้น)</label>
+                            <input type="text" id="p-ward" class="form-control" placeholder="ระบุ Ward">
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted">Note (เตือนความจำ)</label>
+                            <input type="text" id="p-note" class="form-control" placeholder="Optional">
+                        </div>
                     </div>
+                    
                     <button type="submit" class="btn btn-primary w-100 btn-lg shadow fw-bold mb-5">บันทึกข้อมูล <i class="bi bi-save"></i></button>
                 </form>
             </div>
@@ -176,7 +186,7 @@
                 <div class="card mb-3 border-0 shadow-sm bg-white">
                   <div class="card-body p-2">
                     <div class="row g-2">
-                        <div class="col-6"><select id="filter-scope" class="form-select form-select-sm" onchange="updateDash()"><option value="me">ของฉัน</option><option value="all">ทั้งหมด</option></select></div>
+                        <div class="col-6"><select id="filter-scope" class="form-select form-select-sm" onchange="updateSpecList()"><option value="me">ของฉัน</option><option value="all">ทั้งหมด</option></select></div>
                         <div class="col-6"><select id="filter-year" class="form-select form-select-sm" onchange="updateDash()"></select></div>
                         <div class="col-6 hidden" id="div-filter-doc"><select id="filter-doc" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกคน</option></select></div>
                         <div class="col-6"><select id="filter-spec" class="form-select form-select-sm" onchange="updateDash()"><option value="all">ทุกสาขา</option></select></div>
@@ -207,14 +217,18 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-            <h6 class="modal-title fw-bold">ระบุ Ward / Location</h6>
+            <h6 class="modal-title fw-bold">แก้ไขข้อมูล / Status</h6>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="edit-hn">
+            
             <label class="small text-muted mb-1">Ward Name:</label>
             <input type="text" id="edit-ward-input" class="form-control mb-2" placeholder="Ex. 5C, ICU, 9B...">
-            <div class="d-flex gap-2 overflow-auto py-1" id="quick-wards"></div>
+            <div class="d-flex gap-2 overflow-auto py-1 mb-3" id="quick-wards"></div>
+            
+            <label class="small text-muted mb-1">Note (บันทึกช่วยจำ):</label>
+            <textarea id="edit-note-input" class="form-control" rows="2" placeholder="Note เพิ่มเติม..."></textarea>
         </div>
         <div class="modal-footer p-2">
             <button type="button" class="btn btn-primary w-100" onclick="saveWardChange()">บันทึก</button>
@@ -238,7 +252,7 @@
     let allDoctors = [];
     let base64String = "";
     let barChart = null;
-    let myPatientsRaw = []; // สำหรับ Phase 3
+    let myPatientsRaw = []; 
     
     // Status Flags
     let isHistoryLoaded = false;
@@ -253,7 +267,6 @@
         await liff.init({ liffId: LIFF_ID });
         if (!liff.isLoggedIn()) { liff.login(); return; }
         const profile = await liff.getProfile();
-        // เรียก One-Shot Load ผ่าน Fetch
         initApp(profile.userId);
       } catch (err) { console.error(err); }
     };
@@ -327,7 +340,7 @@
         window.scrollTo(0,0);
     }
 
-    // --- PHASE 3: Patient List Logic (FETCH VERSION) ---
+    // --- My Patients Logic ---
     function loadMyPatients() {
         const list = document.getElementById('patient-list-container'); 
         list.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span><br><small>Loading Patients...</small></div>';
@@ -354,6 +367,7 @@
         sel.value = oldVal;
     }
 
+    // [UPDATED] Render List ที่แสดง Note
     function renderPatientList() {
         const fStatus = document.getElementById('filter-status').value;
         const fWard = document.getElementById('filter-ward').value;
@@ -380,32 +394,39 @@
             const btnText = isActive ? 'Offservice' : 'Active';
             
             const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
-            const wardValue = p.ward ? p.ward : ''; 
-
-            // แก้ไขการจัดการชื่อให้ปลอดภัย 100%
+            
+            // Safe Strings
             const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
+            const safeWard = p.ward ? p.ward.replace(/'/g, "\\u0027") : "";
+            const safeNote = p.note ? p.note.replace(/'/g, "\\u0027").replace(/"/g, "&quot;") : "";
+            
+            // Note HTML
+            const noteHtml = p.note ? `<div class="mt-2 text-muted small bg-white border p-2 rounded"><i class="bi bi-sticky-fill text-warning"></i> ${p.note}</div>` : '';
 
             const card = `
                 <div class="card mb-2 border-0 shadow-sm">
-                    <div class="card-body p-3 d-flex justify-content-between align-items-center">
-                        <div style="width: 60%;">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="badge ${badgeClass} rounded-pill" style="font-size: 0.7rem;">${p.status}</span>
-                                <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${wardValue}')">
-                                    <i class="bi bi-geo-alt-fill"></i> ${wardText} <i class="bi bi-pencil-square text-muted small"></i>
-                                </small>
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div style="width: 60%;">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge ${badgeClass} rounded-pill" style="font-size: 0.7rem;">${p.status}</span>
+                                    <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')">
+                                        <i class="bi bi-geo-alt-fill"></i> ${wardText} <i class="bi bi-pencil-square text-muted small"></i>
+                                    </small>
+                                </div>
+                                <h6 class="mb-0 fw-bold text-dark text-truncate">${p.name}</h6>
+                                <small class="text-muted">HN: ${p.hn}</small>
                             </div>
-                            <h6 class="mb-0 fw-bold text-dark text-truncate">${p.name}</h6>
-                            <small class="text-muted">HN: ${p.hn}</small>
+                            <div class="d-flex flex-column gap-1 text-end" style="width: 35%;">
+                                 <button class="btn btn-sm btn-light border" onclick="selectHistory('${safeName}','${p.hn}')">
+                                    <i class="bi bi-clipboard-plus"></i> Follow up
+                                 </button>
+                                 <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${p.hn}', '${p.status}')">
+                                    ${btnText}
+                                 </button>
+                            </div>
                         </div>
-                        <div class="d-flex flex-column gap-1 text-end" style="width: 35%;">
-                             <button class="btn btn-sm btn-light border" onclick="selectHistory('${safeName}','${p.hn}')">
-                                <i class="bi bi-clipboard-plus"></i> Follow up
-                             </button>
-                             <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${p.hn}', '${p.status}')">
-                                ${btnText}
-                             </button>
-                        </div>
+                        ${noteHtml}
                     </div>
                 </div>
             `;
@@ -413,29 +434,28 @@
         });
     }
     
-    // Toggle Status (Active/Offservice)
+    // Toggle Status
     window.toggleStatus = function(hn, currentStatus) {
         const newStatus = currentStatus === 'Active' ? 'Offservice' : 'Active';
         if(!confirm(`ยืนยันเปลี่ยนสถานะเป็น ${newStatus}?`)) return;
 
-        // Optimistic UI Update (แก้หน้าจอเลยไม่ต้องรอ)
         const p = myPatientsRaw.find(x => x.hn == hn);
         if(p) p.status = newStatus;
         renderPatientList(); 
 
-        // Send to Server
         fetch(WEB_APP_URL, {
             method: 'POST', 
             body: JSON.stringify({ action: 'updateStatus', uid: currentDoctor.uid, payload: { hn: hn, status: newStatus } })
         });
     }
 
-    // Ward Modal Logic
+    // [UPDATED] Ward Modal Logic (with Note)
     let wardModal = null;
-    window.openWardModal = function(hn, currentWard) {
+    window.openWardModal = function(hn, currentWard, currentNote) {
         if(!wardModal) wardModal = new bootstrap.Modal(document.getElementById('wardModal'));
         document.getElementById('edit-hn').value = hn;
-        document.getElementById('edit-ward-input').value = (currentWard === '-' ? '' : currentWard);
+        document.getElementById('edit-ward-input').value = (currentWard === '-' || currentWard === 'null' ? '' : currentWard);
+        document.getElementById('edit-note-input').value = (currentNote === 'undefined' || !currentNote) ? '' : currentNote;
         
         const quickBox = document.getElementById('quick-wards');
         quickBox.innerHTML = "";
@@ -450,19 +470,27 @@
     window.saveWardChange = function() {
         const hn = document.getElementById('edit-hn').value;
         const newWard = document.getElementById('edit-ward-input').value || '-';
+        const newNote = document.getElementById('edit-note-input').value;
         
         const p = myPatientsRaw.find(x => x.hn == hn);
-        if(p) p.ward = newWard;
+        if(p) {
+            p.ward = newWard;
+            p.note = newNote;
+        }
         renderPatientList();
         wardModal.hide();
 
         fetch(WEB_APP_URL, {
             method: 'POST', 
-            body: JSON.stringify({ action: 'updateStatus', uid: currentDoctor.uid, payload: { hn: hn, status: p.status, ward: newWard } })
+            body: JSON.stringify({ 
+                action: 'updateStatus', 
+                uid: currentDoctor.uid, 
+                payload: { hn: hn, status: p.status, ward: newWard, note: newNote } 
+            })
         });
     }
 
-    // --- Helpers & Logic ---
+    // --- Helpers ---
     window.selectHistory = function(n, h) { switchTab('input'); document.getElementById('v2').click(); document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; }
 
     window.processFile = function(input) {
@@ -487,7 +515,7 @@
                     base64String = c.toDataURL('image/jpeg', 0.7).split(',')[1];
                     document.getElementById('preview').src = c.toDataURL();
                     document.getElementById('preview').classList.remove('hidden');
-                    scanImage(); // Auto Scan
+                    scanImage(); 
                 };
                 i.src = e.target.result;
             };
@@ -495,15 +523,18 @@
         }
     }
 
+    // [UPDATED] Scan Image รับค่า Ward
     window.scanImage = function() { 
         const btn = document.getElementById('btn-scan'); 
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI กำลังอ่านชื่อ...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI กำลังอ่านข้อมูล...';
         btn.classList.add('btn-primary'); btn.classList.remove('btn-secondary');
         
         fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'analyze', image:base64String})})
         .then(r=>r.json()).then(res=>{ 
             document.getElementById('p-name').value = res.name || ""; 
             document.getElementById('p-hn').value = res.hn || ""; 
+            if(res.ward) document.getElementById('p-ward').value = res.ward;
+            
             btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> อ่านเรียบร้อย';
             btn.classList.remove('btn-primary'); btn.classList.add('btn-success');
             btn.disabled = false;
@@ -515,26 +546,23 @@
     }
 
     window.checkGI = function() {
-    // ใส่ try-catch ครอบเผื่อ element ยังไม่ render
-    try {
-        const selected = document.querySelector('input[name="specialty"]:checked');
-        const giDiv = document.getElementById('div-gi-diag');
-        const giSelect = document.getElementById('gi-diagnosis');
-        
-        if (!giDiv || !giSelect) return; // ถ้าหา element ไม่เจอให้จบเลย อย่า error
+        try {
+            const selected = document.querySelector('input[name="specialty"]:checked');
+            const giDiv = document.getElementById('div-gi-diag');
+            const giSelect = document.getElementById('gi-diagnosis');
+            
+            if (!giDiv || !giSelect) return; 
 
-        if (selected && (selected.value.trim().toUpperCase() === 'GI' || selected.value.includes('GI'))) {
-            giDiv.classList.remove('hidden'); 
-            giSelect.required = true;
-        } else {
-            giDiv.classList.add('hidden'); 
-            giSelect.value = ""; 
-            giSelect.required = false;
-        }
-    } catch (e) {
-        console.warn("GI Check Error:", e);
+            if (selected && (selected.value.trim().toUpperCase() === 'GI' || selected.value.includes('GI'))) {
+                giDiv.classList.remove('hidden'); 
+                giSelect.required = true;
+            } else {
+                giDiv.classList.add('hidden'); 
+                giSelect.value = ""; 
+                giSelect.required = false;
+            }
+        } catch (e) { console.warn("GI Check Error:", e); }
     }
-}
 
     window.copyUID = function() { navigator.clipboard.writeText(document.getElementById('show-uid').innerText); alert("Copied"); }
     window.openExternal = function() { if (liff.isInClient()) { liff.openWindow({ url: window.location.href, external: true }); } else { alert("เปิดอยู่แล้ว"); } }
@@ -557,68 +585,56 @@
     window.fillPatient = function(n, h) { document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; document.getElementById('search-results').classList.add('hidden'); document.getElementById('patient-search').value = ""; }
 
     // --- Dashboard ---
-     function initDashFilters() {
-    // 1. สร้าง Dropdown รายชื่อแพทย์
-    const docSelect = document.getElementById('filter-doc'); 
-    if(docSelect) {
-         docSelect.innerHTML = '<option value="all">ทุกคน</option>';
-         if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
+    function initDashFilters() {
+        const docSelect = document.getElementById('filter-doc'); 
+        if(docSelect) {
+             docSelect.innerHTML = '<option value="all">ทุกคน</option>';
+             if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
+        }
+        const yearSelect = document.getElementById('filter-year'); 
+        const y = new Date().getFullYear();
+        if(yearSelect) yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
+        updateSpecList();
     }
-
-    // 2. สร้าง Dropdown ปี
-    const yearSelect = document.getElementById('filter-year'); 
-    const y = new Date().getFullYear();
-    if(yearSelect) yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
-
-    // --- 3. ส่วนที่เพิ่ม: สร้าง Dropdown สาขา (Specialty) ---
-    const specSelect = document.getElementById('filter-spec');
-    if (specSelect) {
+    
+    function updateSpecList() {
+        const scope = document.getElementById('filter-scope').value;
+        const specSelect = document.getElementById('filter-spec');
         specSelect.innerHTML = '<option value="all">ทุกสาขา</option>';
-        
-        // ใช้ Set เพื่อเก็บชื่อสาขาไม่ให้ซ้ำกัน
         const uniqueSpecs = new Set();
 
-        if (allDoctors) {
-            allDoctors.forEach(d => {
-                // เช็คว่าหมอคนนี้มีข้อมูลสาขาไหม
-                if (d.specialties) {
-                    // แปลงเป็น String แล้วสั่งตัดคำด้วยเครื่องหมายลูกน้ำ (,)
-                    // เช่น "Nephrology, Internal Medicine" -> ["Nephrology", "Internal Medicine"]
-                    const specs = d.specialties.toString().split(',');
-                    
-                    specs.forEach(s => {
-                        // ตัดช่องว่างหน้าหลังทิ้ง (trim) แล้วเก็บเข้า Set
-                        const cleanSpec = s.trim();
-                        if (cleanSpec) uniqueSpecs.add(cleanSpec);
-                    });
-                }
-            });
+        if (scope === 'me') {
+            if (currentDoctor.specialties) {
+                currentDoctor.specialties.forEach(s => uniqueSpecs.add(s.trim()));
+            }
+        } else {
+            if (allDoctors) {
+                allDoctors.forEach(d => {
+                    if (d.specialties) {
+                        d.specialties.toString().split(',').forEach(s => uniqueSpecs.add(s.trim()));
+                    }
+                });
+            }
         }
 
-        // เรียงตามตัวอักษร แล้วสร้าง <option>
         Array.from(uniqueSpecs).sort().forEach(s => {
             specSelect.innerHTML += `<option value="${s}">${s}</option>`;
         });
+        specSelect.value = 'all';
+        updateDash();
     }
-}
     
     function loadDashboard() { 
-    // แสดง loading (ถ้ามี element loading เฉพาะส่วนนี้)
-    fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`)
-    .then(r => r.json())
-    .then(d => { 
-        if(!d.error) { 
-            rawDashboardData = d; 
-            updateDash(); 
-        } else {
-            console.error("Server Error:", d.error);
-        }
-    })
-    .catch(e => {
-        console.error("Dash Load Error:", e);
-        // ถ้าท่านมี Loading Spinner ของ Dashboard ให้สั่งปิดตรงนี้
-    }); 
-}
+        fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`)
+        .then(r => r.json())
+        .then(d => { 
+            if(!d.error) { 
+                rawDashboardData = d; 
+                updateDash(); 
+            } else { console.error("Server Error:", d.error); }
+        })
+        .catch(e => { console.error("Dash Load Error:", e); }); 
+    }
     
     window.updateDash = function() {
         const scope = document.getElementById('filter-scope').value; 
@@ -628,24 +644,17 @@
         document.getElementById('div-filter-doc').classList.toggle('hidden', scope !== 'all');
         
         const filtered = rawDashboardData.filter(item => {
-        const d = new Date(item.date);
-        if (d.getFullYear() !== year) return false;
-        if (scope === 'me' && item.doctor !== currentDoctor.name) return false;
-    
-    // --- จุดที่แก้ ---
-    // 1. กรองหมอ (ถ้ามีการเลือก)
-        if (scope === 'all' && fDoc !== 'all' && item.doctor !== fDoc) return false;
-
-    // 2. กรองสาขา (Specialty) - ใส่ trim() ทั้งสองฝั่งเพื่อให้แม่นยำ
-        if (fSpec !== 'all') {
-       // กันเหนียวเผื่อค่าเป็น null
-       const itemSpec = (item.specialty || "").toString().trim(); 
-       if (itemSpec !== fSpec.trim()) return false;
-    }
-    // ----------------
-    
-    return true;
-});
+            const d = new Date(item.date);
+            if (d.getFullYear() !== year) return false;
+            if (scope === 'me' && item.doctor !== currentDoctor.name) return false;
+            if (scope === 'all' && fDoc !== 'all' && item.doctor !== fDoc) return false;
+            if (fSpec !== 'all') {
+               const itemSpec = (item.specialty || "").toString().trim(); 
+               if (itemSpec !== fSpec.trim()) return false;
+            }
+            return true;
+        });
+        
         document.getElementById('chart-total').innerText = filtered.length;
         
         let firstVisitData = Array(12).fill(0);
@@ -679,7 +688,7 @@
         });
     }
 
-    // Submit
+    // [UPDATED] Submit Form รวม Ward และ Note
     document.getElementById('consult-form').onsubmit = function(e) {
         e.preventDefault();
         document.getElementById('loading').classList.remove('hidden');
@@ -694,7 +703,11 @@
             hn: document.getElementById('p-hn').value,
             visitType: document.querySelector('input[name="visitType"]:checked').value,
             diagnosis: diagnosisVal,
-            visitDate: document.getElementById('visit-date').value
+            visitDate: document.getElementById('visit-date').value,
+            
+            // ส่งค่าใหม่
+            ward: document.getElementById('p-ward').value,
+            note: document.getElementById('p-note').value
         };
         fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("บันทึกข้อมูลเรียบร้อย ✅"); location.reload(); });
     };
@@ -702,10 +715,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
