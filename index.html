@@ -557,15 +557,50 @@
     window.fillPatient = function(n, h) { document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; document.getElementById('search-results').classList.add('hidden'); document.getElementById('patient-search').value = ""; }
 
     // --- Dashboard ---
-    function initDashFilters() {
-        const docSelect = document.getElementById('filter-doc'); 
-        if(docSelect) {
-             docSelect.innerHTML = '<option value="all">ทุกคน</option>';
-             if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
-        }
-        const yearSelect = document.getElementById('filter-year'); const y = new Date().getFullYear();
-        if(yearSelect) yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
+     function initDashFilters() {
+    // 1. สร้าง Dropdown รายชื่อแพทย์
+    const docSelect = document.getElementById('filter-doc'); 
+    if(docSelect) {
+         docSelect.innerHTML = '<option value="all">ทุกคน</option>';
+         if(allDoctors) allDoctors.forEach(d => { docSelect.innerHTML += `<option value="${d.name}">${d.name}</option>`; });
     }
+
+    // 2. สร้าง Dropdown ปี
+    const yearSelect = document.getElementById('filter-year'); 
+    const y = new Date().getFullYear();
+    if(yearSelect) yearSelect.innerHTML = `<option value="${y}">${y}</option><option value="${y-1}">${y-1}</option>`;
+
+    // --- 3. ส่วนที่เพิ่ม: สร้าง Dropdown สาขา (Specialty) ---
+    const specSelect = document.getElementById('filter-spec');
+    if (specSelect) {
+        specSelect.innerHTML = '<option value="all">ทุกสาขา</option>';
+        
+        // ใช้ Set เพื่อเก็บชื่อสาขาไม่ให้ซ้ำกัน
+        const uniqueSpecs = new Set();
+
+        if (allDoctors) {
+            allDoctors.forEach(d => {
+                // เช็คว่าหมอคนนี้มีข้อมูลสาขาไหม
+                if (d.specialties) {
+                    // แปลงเป็น String แล้วสั่งตัดคำด้วยเครื่องหมายลูกน้ำ (,)
+                    // เช่น "Nephrology, Internal Medicine" -> ["Nephrology", "Internal Medicine"]
+                    const specs = d.specialties.toString().split(',');
+                    
+                    specs.forEach(s => {
+                        // ตัดช่องว่างหน้าหลังทิ้ง (trim) แล้วเก็บเข้า Set
+                        const cleanSpec = s.trim();
+                        if (cleanSpec) uniqueSpecs.add(cleanSpec);
+                    });
+                }
+            });
+        }
+
+        // เรียงตามตัวอักษร แล้วสร้าง <option>
+        Array.from(uniqueSpecs).sort().forEach(s => {
+            specSelect.innerHTML += `<option value="${s}">${s}</option>`;
+        });
+    }
+}
     
     function loadDashboard() { 
     // แสดง loading (ถ้ามี element loading เฉพาะส่วนนี้)
@@ -667,6 +702,7 @@
   </script>
 </body>
 </html>
+
 
 
 
