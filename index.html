@@ -355,18 +355,49 @@
     }
 
     // --- My Patients Logic ---
-    function loadMyPatients() {
-        const list = document.getElementById('patient-list-container'); 
-        list.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span><br><small>Loading Patients...</small></div>';
+    // [index.html] แก้ไขฟังก์ชัน loadMyPatients (ให้จำข้อมูลในเครื่อง)
+
+function loadMyPatients() {
+    const listContainer = document.getElementById('patient-list-container'); 
+    
+    // 1. [Turbo] ลองดึงข้อมูลเก่าจากเครื่องมาโชว์ก่อน (ถ้ามี)
+    const localKey = 'myPatients_' + currentDoctor.uid;
+    const cachedData = localStorage.getItem(localKey);
+    
+    if (cachedData) {
+        // ถ้ามีของเก่า ให้โชว์เลย (User จะรู้สึกว่ามาทันที)
+        console.log("Loading from Local Storage...");
+        myPatientsRaw = JSON.parse(cachedData);
+        updateWardFilterOptions();
+        renderPatientList();
         
-        fetch(`${WEB_APP_URL}?action=getMyPatients&uid=${currentDoctor.uid}`)
-        .then(r => r.json())
-        .then(data => {
-            myPatientsRaw = data;
-            updateWardFilterOptions();
-            renderPatientList();
-        });
+        // แปะป้ายบอกนิดนึงว่ากำลังอัปเดต
+        listContainer.insertAdjacentHTML('afterbegin', '<div id="updating-bar" class="text-center small text-muted bg-light py-1 mb-2"><span class="spinner-border spinner-border-sm"></span> Checking for updates...</div>');
+    } else {
+        // ถ้าไม่มีของเก่าเลย ให้หมุนรอ
+        listContainer.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span><br><small>Loading Patients...</small></div>';
     }
+    
+    // 2. เรียก Server เพื่อเอาข้อมูลล่าสุด (ทำเบื้องหลัง)
+    fetch(`${WEB_APP_URL}?action=getMyPatients&uid=${currentDoctor.uid}`)
+    .then(r => r.json())
+    .then(data => {
+        // ลบป้าย Updating ออก (ถ้ามี)
+        const updatingBar = document.getElementById('updating-bar');
+        if(updatingBar) updatingBar.remove();
+
+        // 3. อัปเดตข้อมูลจริง และบันทึกลงเครื่อง
+        myPatientsRaw = data;
+        localStorage.setItem(localKey, JSON.stringify(data)); // จำไว้ใช้คราวหน้า
+        
+        updateWardFilterOptions();
+        renderPatientList();
+    })
+    .catch(e => {
+        console.error("Fetch Error:", e);
+        // ถ้าโหลดพลาด แต่มีของเก่าโชว์อยู่แล้ว ก็ไม่ต้องทำอะไร (User ยังใช้งานต่อได้)
+    });
+}
 
     function updateWardFilterOptions() {
         const wards = new Set();
@@ -753,5 +784,6 @@
   </script>
 </body>
 </html>
+
 
 
