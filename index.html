@@ -254,14 +254,11 @@
     let barChart = null;
     let myPatientsRaw = []; 
     
-    // Status Flags
     let isHistoryLoaded = false;
     let isDashLoaded = false;
 
-    // Register Chart Plugin
     if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
-    // 1. INIT LIFF
     window.onload = async function() {
       try {
         await liff.init({ liffId: LIFF_ID });
@@ -272,36 +269,29 @@
     };
 
     function initApp(uid) {
-    // แสดง Console เพื่อ Debug
-    console.log("Checking User:", uid);
+        console.log("Checking User:", uid);
+        fetch(`${WEB_APP_URL}?action=loadApp&uid=${uid}`)
+        .then(res => res.json())
+        .then(res => {
+            console.log("Response:", res);
+            if (res.status === 'success') {
+                currentDoctor = res.doctor;
+                existingPatients = res.patients;
+                allDoctors = res.doctors;
+                startApp();
+            } else {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('unauth-screen').classList.remove('hidden');
+                document.getElementById('main-app').classList.add('hidden');
+                document.getElementById('show-uid').innerText = res.uid || uid || "Unknown UID"; 
+            }
+        })
+        .catch(e => {
+            document.getElementById('loading').innerHTML = 
+                `<div class="text-danger p-3">Error: ${e}<br><button class="btn btn-outline-danger btn-sm mt-2" onclick="location.reload()">Retry</button></div>`;
+        });
+    }
 
-    fetch(`${WEB_APP_URL}?action=loadApp&uid=${uid}`)
-    .then(res => res.json())
-    .then(res => {
-        console.log("Response:", res); // ดูค่าที่ส่งกลับมา
-
-        if (res.status === 'success') {
-            // กรณี: เป็นสมาชิกแล้ว -> โหลดข้อมูล
-            currentDoctor = res.doctor;
-            existingPatients = res.patients;
-            allDoctors = res.doctors;
-            startApp();
-        } else {
-            // กรณี: ยังไม่ได้ลงทะเบียน (หรือ Error อื่นๆ) -> หยุดหมุนและโชว์ UID
-            document.getElementById('loading').classList.add('hidden'); // ปิด Spinner
-            document.getElementById('unauth-screen').classList.remove('hidden'); // เปิดหน้าจอ Access Denied
-            document.getElementById('main-app').classList.add('hidden'); // ซ่อนแอปหลัก (กันพลาด)
-            
-            // แสดง UID ให้ copy
-            document.getElementById('show-uid').innerText = res.uid || uid || "Unknown UID"; 
-        }
-    })
-    .catch(e => {
-        // กรณี: พังจริงๆ (เช่น เน็ตหลุด, Script Error)
-        document.getElementById('loading').innerHTML = 
-            `<div class="text-danger p-3">Error: ${e}<br><button class="btn btn-outline-danger btn-sm mt-2" onclick="location.reload()">Retry</button></div>`;
-    });
-}
     function startApp() {
         document.getElementById('loading').classList.add('hidden');
         document.getElementById('unauth-screen').classList.add('hidden');
@@ -310,8 +300,6 @@
         document.getElementById('header-doc-name').innerText = currentDoctor.name;
         document.getElementById('visit-date').valueAsDate = new Date();
 
-        
-        // Render Specialty
         const container = document.getElementById('specialty-container'); 
         container.innerHTML = "";
         currentDoctor.specialties.forEach((spec, i) => {
@@ -337,7 +325,6 @@
         initDashFilters();
     }
 
-    // --- Tab Switching ---
     window.switchTab = function(tab) {
         document.querySelectorAll('.page-section').forEach(el => el.classList.add('hidden'));
         document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -345,7 +332,8 @@
         document.getElementById('nav-' + tab).classList.add('active');
         
         if(tab === 'history') {
-             if(!isHistoryLoaded) { loadMyPatients(); isHistoryLoaded = true; }
+             // โหลดใหม่ทุกครั้งเพื่อความชัวร์ (ไม่ต้องเช็ค isHistoryLoaded)
+             loadMyPatients(); 
         }
         if(tab === 'dashboard') {
              if(!isDashLoaded) { loadDashboard(); isDashLoaded = true; }
@@ -354,50 +342,23 @@
         window.scrollTo(0,0);
     }
 
-    // --- My Patients Logic ---
-    // [index.html] แก้ไขฟังก์ชัน loadMyPatients (ให้จำข้อมูลในเครื่อง)
-
-function loadMyPatients() {
-    const listContainer = document.getElementById('patient-list-container'); 
-    
-    // 1. [Turbo] ลองดึงข้อมูลเก่าจากเครื่องมาโชว์ก่อน (ถ้ามี)
-    const localKey = 'myPatients_' + currentDoctor.uid;
-    const cachedData = localStorage.getItem(localKey);
-    
-    if (cachedData) {
-        // ถ้ามีของเก่า ให้โชว์เลย (User จะรู้สึกว่ามาทันที)
-        console.log("Loading from Local Storage...");
-        myPatientsRaw = JSON.parse(cachedData);
-        updateWardFilterOptions();
-        renderPatientList();
-        
-        // แปะป้ายบอกนิดนึงว่ากำลังอัปเดต
-        listContainer.insertAdjacentHTML('afterbegin', '<div id="updating-bar" class="text-center small text-muted bg-light py-1 mb-2"><span class="spinner-border spinner-border-sm"></span> Checking for updates...</div>');
-    } else {
-        // ถ้าไม่มีของเก่าเลย ให้หมุนรอ
+    // [FIXED] Load Patients แบบสดๆ (ถอด localStorage ออก)
+    function loadMyPatients() {
+        const listContainer = document.getElementById('patient-list-container'); 
         listContainer.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span><br><small>Loading Patients...</small></div>';
-    }
-    
-    // 2. เรียก Server เพื่อเอาข้อมูลล่าสุด (ทำเบื้องหลัง)
-    fetch(`${WEB_APP_URL}?action=getMyPatients&uid=${currentDoctor.uid}`)
-    .then(r => r.json())
-    .then(data => {
-        // ลบป้าย Updating ออก (ถ้ามี)
-        const updatingBar = document.getElementById('updating-bar');
-        if(updatingBar) updatingBar.remove();
-
-        // 3. อัปเดตข้อมูลจริง และบันทึกลงเครื่อง
-        myPatientsRaw = data;
-        localStorage.setItem(localKey, JSON.stringify(data)); // จำไว้ใช้คราวหน้า
         
-        updateWardFilterOptions();
-        renderPatientList();
-    })
-    .catch(e => {
-        console.error("Fetch Error:", e);
-        // ถ้าโหลดพลาด แต่มีของเก่าโชว์อยู่แล้ว ก็ไม่ต้องทำอะไร (User ยังใช้งานต่อได้)
-    });
-}
+        fetch(`${WEB_APP_URL}?action=getMyPatients&uid=${currentDoctor.uid}`)
+        .then(r => r.json())
+        .then(data => {
+            myPatientsRaw = data;
+            updateWardFilterOptions();
+            renderPatientList();
+        })
+        .catch(e => {
+            console.error("Fetch Error:", e);
+            listContainer.innerHTML = `<div class="text-center text-danger mt-4">Load Error: ${e}</div>`;
+        });
+    }
 
     function updateWardFilterOptions() {
         const wards = new Set();
@@ -412,100 +373,97 @@ function loadMyPatients() {
         sel.value = oldVal;
     }
 
-    // [index.html] แก้ไขฟังก์ชันนี้ครับ
+    // [FIXED] Render Logic (String Force)
+    function renderPatientList() {
+        const fStatus = document.getElementById('filter-status').value;
+        const fWard = document.getElementById('filter-ward').value;
+        const container = document.getElementById('patient-list-container');
+        container.innerHTML = "";
 
-function renderPatientList() {
-    const fStatus = document.getElementById('filter-status').value;
-    const fWard = document.getElementById('filter-ward').value;
-    const container = document.getElementById('patient-list-container');
-    container.innerHTML = "";
+        const filtered = myPatientsRaw.filter(p => {
+            // 1. กรอง Status
+            if (fStatus !== 'All') {
+                if (String(p.status).trim().toLowerCase() !== fStatus.toLowerCase()) return false;
+            }
 
-    const filtered = myPatientsRaw.filter(p => {
-        // 1. กรอง Status (ตัดช่องว่าง และเทียบแบบไม่สน Case)
-        if (fStatus !== 'All') {
-            if (String(p.status).trim().toLowerCase() !== fStatus.toLowerCase()) return false;
+            // 2. กรอง Ward (บังคับ String กันเหนียว)
+            const pWard = p.ward ? String(p.ward).trim() : '-';
+            if (fWard !== 'All') {
+                 if (pWard !== String(fWard).trim()) return false;
+            }
+            
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            document.getElementById('no-patients').classList.remove('hidden');
+            return;
         }
+        document.getElementById('no-patients').classList.add('hidden');
 
-        // 2. กรอง Ward (แก้ปัญหาเลข 3)
-        // บังคับแปลงเป็น String ทั้งคู่ก่อนเทียบ
-        const pWard = p.ward ? String(p.ward).trim() : '-';
-        if (fWard !== 'All') {
-             if (pWard !== String(fWard).trim()) return false;
-        }
-        
-        return true;
-    });
+        filtered.forEach(p => {
+            const isActive = String(p.status).toLowerCase() === 'active';
+            const badgeClass = isActive ? 'bg-success' : 'bg-secondary';
+            const btnClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
+            const btnText = isActive ? 'Offservice' : 'Active';
+            
+            const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
+            
+            const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
+            const safeWard = p.ward ? p.ward.replace(/'/g, "\\u0027") : "";
+            const safeNote = p.note ? p.note.replace(/'/g, "\\u0027").replace(/"/g, "&quot;").replace(/\n/g, " ") : "";
+            
+            let noteDisplayHtml = "";
+            if (p.note && p.note.trim() !== "") {
+                noteDisplayHtml = `
+                    <div class="mt-2 p-2 bg-warning bg-opacity-10 border border-warning rounded small text-dark d-flex align-items-start gap-2" 
+                         onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')" style="cursor: pointer;">
+                        <i class="bi bi-pencil-square text-warning mt-1"></i>
+                        <span>${p.note}</span>
+                    </div>
+                `;
+            } else {
+                 noteDisplayHtml = `
+                    <div class="mt-2 text-end">
+                        <small class="text-muted cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '')">
+                            <i class="bi bi-plus-circle"></i> Add Note
+                        </small>
+                    </div>
+                 `;
+            }
 
-    if (filtered.length === 0) {
-        document.getElementById('no-patients').classList.remove('hidden');
-        return;
-    }
-    document.getElementById('no-patients').classList.add('hidden');
-
-    filtered.forEach(p => {
-        const isActive = String(p.status).toLowerCase() === 'active';
-        const badgeClass = isActive ? 'bg-success' : 'bg-secondary';
-        const btnClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
-        const btnText = isActive ? 'Offservice' : 'Active';
-        
-        const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
-        
-        const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
-        const safeWard = p.ward ? p.ward.replace(/'/g, "\\u0027") : "";
-        const safeNote = p.note ? p.note.replace(/'/g, "\\u0027").replace(/"/g, "&quot;").replace(/\n/g, " ") : "";
-        
-        let noteDisplayHtml = "";
-        if (p.note && p.note.trim() !== "") {
-            noteDisplayHtml = `
-                <div class="mt-2 p-2 bg-warning bg-opacity-10 border border-warning rounded small text-dark d-flex align-items-start gap-2" 
-                     onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')" style="cursor: pointer;">
-                    <i class="bi bi-pencil-square text-warning mt-1"></i>
-                    <span>${p.note}</span>
+            const card = `
+                <div class="card mb-2 border-0 shadow-sm">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div style="width: 65%;">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <span class="badge ${badgeClass} rounded-pill" style="font-size: 0.7rem;">${p.status}</span>
+                                    <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')">
+                                        <i class="bi bi-geo-alt-fill"></i> ${wardText} 
+                                        <i class="bi bi-pencil-square text-muted small"></i>
+                                    </small>
+                                </div>
+                                <h6 class="mb-0 fw-bold text-dark text-truncate">${p.name}</h6>
+                                <small class="text-muted">HN: ${p.hn}</small>
+                            </div>
+                            <div class="d-flex flex-column gap-1 text-end" style="width: 30%;">
+                                 <button class="btn btn-sm btn-light border" onclick="selectHistory('${safeName}','${p.hn}')">
+                                    <i class="bi bi-clipboard-plus"></i> Follow
+                                 </button>
+                                 <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${p.hn}', '${p.status}')">
+                                    ${btnText}
+                                 </button>
+                            </div>
+                        </div>
+                        ${noteDisplayHtml}
+                    </div>
                 </div>
             `;
-        } else {
-             noteDisplayHtml = `
-                <div class="mt-2 text-end">
-                    <small class="text-muted cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '')">
-                        <i class="bi bi-plus-circle"></i> Add Note
-                    </small>
-                </div>
-             `;
-        }
-
-        const card = `
-            <div class="card mb-2 border-0 shadow-sm">
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div style="width: 65%;">
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="badge ${badgeClass} rounded-pill" style="font-size: 0.7rem;">${p.status}</span>
-                                <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')">
-                                    <i class="bi bi-geo-alt-fill"></i> ${wardText} 
-                                    <i class="bi bi-pencil-square text-muted small"></i>
-                                </small>
-                            </div>
-                            <h6 class="mb-0 fw-bold text-dark text-truncate">${p.name}</h6>
-                            <small class="text-muted">HN: ${p.hn}</small>
-                        </div>
-                        <div class="d-flex flex-column gap-1 text-end" style="width: 30%;">
-                             <button class="btn btn-sm btn-light border" onclick="selectHistory('${safeName}','${p.hn}')">
-                                <i class="bi bi-clipboard-plus"></i> Follow
-                             </button>
-                             <button class="btn btn-sm ${btnClass}" onclick="toggleStatus('${p.hn}', '${p.status}')">
-                                ${btnText}
-                             </button>
-                        </div>
-                    </div>
-                    ${noteDisplayHtml}
-                </div>
-            </div>
-        `;
-        container.innerHTML += card;
-    });
-}
+            container.innerHTML += card;
+        });
+    }
     
-    // Toggle Status
     window.toggleStatus = function(hn, currentStatus) {
         const newStatus = currentStatus === 'Active' ? 'Offservice' : 'Active';
         if(!confirm(`ยืนยันเปลี่ยนสถานะเป็น ${newStatus}?`)) return;
@@ -520,7 +478,6 @@ function renderPatientList() {
         });
     }
 
-    // [UPDATED] Ward Modal Logic (with Note)
     let wardModal = null;
     window.openWardModal = function(hn, currentWard, currentNote) {
         if(!wardModal) wardModal = new bootstrap.Modal(document.getElementById('wardModal'));
@@ -561,7 +518,6 @@ function renderPatientList() {
         });
     }
 
-    // --- Helpers ---
     window.selectHistory = function(n, h) { switchTab('input'); document.getElementById('v2').click(); document.getElementById('p-name').value = n; document.getElementById('p-hn').value = h; }
 
     window.processFile = function(input) {
@@ -594,7 +550,6 @@ function renderPatientList() {
         }
     }
 
-    // [UPDATED] Scan Image รับค่า Ward
     window.scanImage = function() { 
         const btn = document.getElementById('btn-scan'); 
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> AI กำลังอ่านข้อมูล...';
@@ -759,7 +714,6 @@ function renderPatientList() {
         });
     }
 
-    // [UPDATED] Submit Form รวม Ward และ Note
     document.getElementById('consult-form').onsubmit = function(e) {
         e.preventDefault();
         document.getElementById('loading').classList.remove('hidden');
@@ -776,7 +730,6 @@ function renderPatientList() {
             diagnosis: diagnosisVal,
             visitDate: document.getElementById('visit-date').value,
             
-            // ส่งค่าใหม่
             ward: document.getElementById('p-ward').value,
             note: document.getElementById('p-note').value
         };
@@ -786,7 +739,3 @@ function renderPatientList() {
   </script>
 </body>
 </html>
-
-
-
-
