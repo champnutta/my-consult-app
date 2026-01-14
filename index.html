@@ -412,16 +412,27 @@ function loadMyPatients() {
         sel.value = oldVal;
     }
 
-    function renderPatientList() {
+    // [index.html] แก้ไขฟังก์ชันนี้ครับ
+
+function renderPatientList() {
     const fStatus = document.getElementById('filter-status').value;
     const fWard = document.getElementById('filter-ward').value;
     const container = document.getElementById('patient-list-container');
     container.innerHTML = "";
 
     const filtered = myPatientsRaw.filter(p => {
-        if (fStatus !== 'All' && p.status !== fStatus) return false;
-        const pWard = p.ward || '-'; 
-        if (fWard !== 'All' && pWard !== fWard) return false;
+        // 1. กรอง Status (ตัดช่องว่าง และเทียบแบบไม่สน Case)
+        if (fStatus !== 'All') {
+            if (String(p.status).trim().toLowerCase() !== fStatus.toLowerCase()) return false;
+        }
+
+        // 2. กรอง Ward (แก้ปัญหาเลข 3)
+        // บังคับแปลงเป็น String ทั้งคู่ก่อนเทียบ
+        const pWard = p.ward ? String(p.ward).trim() : '-';
+        if (fWard !== 'All') {
+             if (pWard !== String(fWard).trim()) return false;
+        }
+        
         return true;
     });
 
@@ -432,21 +443,17 @@ function loadMyPatients() {
     document.getElementById('no-patients').classList.add('hidden');
 
     filtered.forEach(p => {
-        const isActive = p.status === 'Active';
+        const isActive = String(p.status).toLowerCase() === 'active';
         const badgeClass = isActive ? 'bg-success' : 'bg-secondary';
         const btnClass = isActive ? 'btn-outline-danger' : 'btn-outline-success';
         const btnText = isActive ? 'Offservice' : 'Active';
         
         const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
         
-        // --- เตรียมข้อมูลสำหรับส่งเข้า Modal (ต้องระวังเครื่องหมายคำพูด ' และ ") ---
         const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
         const safeWard = p.ward ? p.ward.replace(/'/g, "\\u0027") : "";
-        // [สำคัญ] เตรียม text note ให้ปลอดภัยสำหรับใส่ใน onclick
         const safeNote = p.note ? p.note.replace(/'/g, "\\u0027").replace(/"/g, "&quot;").replace(/\n/g, " ") : "";
         
-        // --- สร้าง HTML สำหรับแสดง Note (ถ้ามี) ---
-        // จะแสดงเป็นกล่องสีเหลืองอ่อนๆ ด้านล่างการ์ด
         let noteDisplayHtml = "";
         if (p.note && p.note.trim() !== "") {
             noteDisplayHtml = `
@@ -457,7 +464,6 @@ function loadMyPatients() {
                 </div>
             `;
         } else {
-             // ถ้าไม่มี Note ให้แสดงปุ่มบวก Note เล็กๆ (Optional: ลบออกได้ถ้าไม่อยากให้รก)
              noteDisplayHtml = `
                 <div class="mt-2 text-end">
                     <small class="text-muted cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '')">
@@ -474,7 +480,6 @@ function loadMyPatients() {
                         <div style="width: 65%;">
                             <div class="d-flex align-items-center gap-2 mb-1">
                                 <span class="badge ${badgeClass} rounded-pill" style="font-size: 0.7rem;">${p.status}</span>
-                                
                                 <small class="fw-bold text-primary cursor-pointer" onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')">
                                     <i class="bi bi-geo-alt-fill"></i> ${wardText} 
                                     <i class="bi bi-pencil-square text-muted small"></i>
@@ -483,7 +488,6 @@ function loadMyPatients() {
                             <h6 class="mb-0 fw-bold text-dark text-truncate">${p.name}</h6>
                             <small class="text-muted">HN: ${p.hn}</small>
                         </div>
-                        
                         <div class="d-flex flex-column gap-1 text-end" style="width: 30%;">
                              <button class="btn btn-sm btn-light border" onclick="selectHistory('${safeName}','${p.hn}')">
                                 <i class="bi bi-clipboard-plus"></i> Follow
@@ -493,9 +497,7 @@ function loadMyPatients() {
                              </button>
                         </div>
                     </div>
-                    
                     ${noteDisplayHtml}
-                    
                 </div>
             </div>
         `;
@@ -784,6 +786,7 @@ function loadMyPatients() {
   </script>
 </body>
 </html>
+
 
 
 
