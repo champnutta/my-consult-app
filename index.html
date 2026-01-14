@@ -170,7 +170,7 @@
                             </div>
                             <div class="col-7">
                                 <select id="filter-ward" class="form-select form-select-sm" onchange="renderPatientList()">
-                                    <option value="All">All Wards</option>
+                                    <option value="All" selected>All Wards</option>
                                 </select>
                             </div>
                         </div>
@@ -332,7 +332,6 @@
         document.getElementById('nav-' + tab).classList.add('active');
         
         if(tab === 'history') {
-             // โหลดใหม่ทุกครั้งเพื่อความชัวร์ (ไม่ต้องเช็ค isHistoryLoaded)
              loadMyPatients(); 
         }
         if(tab === 'dashboard') {
@@ -342,7 +341,7 @@
         window.scrollTo(0,0);
     }
 
-    // [FIXED] Load Patients แบบสดๆ (ถอด localStorage ออก)
+    // [FIXED] ถอด Cache ออก เพื่อให้ดึงข้อมูลใหม่เสมอ
     function loadMyPatients() {
         const listContainer = document.getElementById('patient-list-container'); 
         listContainer.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span><br><small>Loading Patients...</small></div>';
@@ -360,20 +359,35 @@
         });
     }
 
+    // [FIXED] ป้องกัน All Wards หาย
     function updateWardFilterOptions() {
         const wards = new Set();
-        myPatientsRaw.forEach(p => { if(p.ward && p.ward !== '-') wards.add(p.ward); });
+        // แปลงทุกอย่างเป็น String และ Trim
+        myPatientsRaw.forEach(p => { 
+            if(p.ward && String(p.ward).trim() !== '-' && String(p.ward).trim() !== '') {
+                wards.add(String(p.ward).trim()); 
+            }
+        });
         
         const sel = document.getElementById('filter-ward');
-        const oldVal = sel.value;
-        sel.innerHTML = '<option value="All">All Wards</option>';
-        Array.from(wards).sort().forEach(w => {
+        const oldVal = sel.value || 'All'; // จำค่าเดิม ถ้าไม่มีให้เป็น All
+        
+        sel.innerHTML = '<option value="All">All Wards</option>'; // สร้าง Option All เสมอ
+        
+        // เรียงลำดับแบบฉลาด (เลข 1, 2, 3, 10)
+        Array.from(wards).sort((a,b) => a.localeCompare(b, undefined, {numeric: true})).forEach(w => {
             sel.innerHTML += `<option value="${w}">${w}</option>`;
         });
-        sel.value = oldVal;
+        
+        // พยายามคืนค่าเดิม ถ้าค่าเดิมยังมีอยู่
+        if (oldVal === 'All' || Array.from(wards).includes(oldVal)) {
+             sel.value = oldVal;
+        } else {
+             sel.value = 'All'; // ถ้า Ward เดิมหายไป (เช่น แก้ชื่อ Ward) ให้กลับมาเป็น All
+        }
     }
 
-    // [FIXED] Render Logic (String Force)
+    // [FIXED] Filter Logic ที่ยืดหยุ่นขึ้น (String Force)
     function renderPatientList() {
         const fStatus = document.getElementById('filter-status').value;
         const fWard = document.getElementById('filter-ward').value;
@@ -381,13 +395,14 @@
         container.innerHTML = "";
 
         const filtered = myPatientsRaw.filter(p => {
-            // 1. กรอง Status
+            // 1. Status Filter (Case Insensitive)
             if (fStatus !== 'All') {
                 if (String(p.status).trim().toLowerCase() !== fStatus.toLowerCase()) return false;
             }
 
-            // 2. กรอง Ward (บังคับ String กันเหนียว)
+            // 2. Ward Filter (String Force)
             const pWard = p.ward ? String(p.ward).trim() : '-';
+            // ถ้าเลือก All ให้ผ่านตลอด แต่ถ้าเลือกเจาะจง ต้องตรงกันเป๊ะ
             if (fWard !== 'All') {
                  if (pWard !== String(fWard).trim()) return false;
             }
@@ -410,7 +425,7 @@
             const wardText = p.ward && p.ward !== '-' ? p.ward : '<span class="text-muted fst-italic">No Ward</span>';
             
             const safeName = p.name ? p.name.replace(/'/g, "\\u0027") : "";
-            const safeWard = p.ward ? p.ward.replace(/'/g, "\\u0027") : "";
+            const safeWard = p.ward ? String(p.ward).replace(/'/g, "\\u0027") : "";
             const safeNote = p.note ? p.note.replace(/'/g, "\\u0027").replace(/"/g, "&quot;").replace(/\n/g, " ") : "";
             
             let noteDisplayHtml = "";
