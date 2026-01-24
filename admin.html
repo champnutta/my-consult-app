@@ -3,191 +3,263 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin System</title>
+    <title>Smart Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
-        .card-stat { transition: transform 0.2s; }
-        .card-stat:hover { transform: translateY(-5px); }
+        body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; }
+        .nav-tabs .nav-link.active { font-weight: bold; border-bottom: 3px solid #0d6efd; color: #0d6efd; }
+        .table-input { width: 70px; text-align: center; }
+        .bg-head { background-color: #eef2f7; }
     </style>
 </head>
 <body class="p-3">
-
-    <div class="container" style="max-width: 800px;">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="fw-bold text-primary">⚙️ Admin Dashboard</h4>
-            <span id="admin-status" class="badge bg-secondary">Checking...</span>
+    <div class="container" style="max-width: 900px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="fw-bold text-primary"><i class="bi bi-shield-lock"></i> Admin Dashboard</h4>
+            <span id="admin-badge" class="badge bg-secondary">Checking...</span>
         </div>
 
-        <div id="error-box" class="alert alert-danger d-none"></div>
-
-        <div class="card shadow-sm border-0 mb-4">
-            <div class="card-header bg-white fw-bold">1. ตั้งค่าคะแนน (Weights)</div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>ชื่อแพทย์</th>
-                                <th class="text-center">New Case</th>
-                                <th class="text-center">F/U</th>
-                                <th class="text-center">UGIB</th>
-                            </tr>
-                        </thead>
-                        <tbody id="doctor-list">
-                            <tr><td colspan="4" class="text-center py-3">กำลังโหลดข้อมูล...</td></tr>
-                        </tbody>
-                    </table>
+        <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-auto fw-bold text-muted small">FILTER:</div>
+                    <div class="col-auto">
+                        <select id="filter-year" class="form-select form-select-sm" onchange="updateDateRange()"></select>
+                    </div>
+                    <div class="col-auto">
+                        <select id="filter-month" class="form-select form-select-sm" onchange="loadStats()">
+                            <option value="all">ทั้งปีงบประมาณ</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                        </select>
+                    </div>
+                    <div class="col text-end">
+                        <button onclick="loadStats()" class="btn btn-primary btn-sm">Refresh</button>
+                    </div>
                 </div>
-            </div>
-            <div class="card-footer bg-white text-end">
-                <button onclick="saveWeights()" id="btn-save" class="btn btn-success"><i class="bi bi-save"></i> บันทึกค่า</button>
             </div>
         </div>
 
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white fw-bold d-flex justify-content-between">
-                <span>2. สถิติรวม (Realtime)</span>
-                <button onclick="loadStats()" class="btn btn-sm btn-outline-primary">Refresh</button>
-            </div>
-            <div class="card-body">
-                <div class="row text-center" id="stats-box">
-                   <div class="col-12 text-muted">กด Refresh เพื่อดูข้อมูลล่าสุด</div>
+        <ul class="nav nav-tabs mb-3 bg-white rounded shadow-sm px-2 pt-2" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general-pane" type="button">📊 General PA</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="gi-tab" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button">🩸 GI Statistics</button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            
+            <div class="tab-pane fade show active" id="general-pane" role="tabpanel">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-head text-center">
+                                    <tr>
+                                        <th class="text-start ps-3">แพทย์</th>
+                                        <th>New Case</th>
+                                        <th>F/U</th>
+                                        <th class="text-muted small" style="width: 80px;">x New (2)</th>
+                                        <th class="text-muted small" style="width: 80px;">x F/U (1)</th>
+                                        <th class="fw-bold text-primary">Total Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-general"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white text-end">
+                        <button onclick="saveWeights()" class="btn btn-success btn-sm">บันทึก Weight</button>
+                    </div>
                 </div>
             </div>
+
+            <div class="tab-pane fade" id="gi-pane" role="tabpanel">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="bg-head text-center">
+                                    <tr>
+                                        <th class="text-start ps-3">แพทย์ (GI)</th>
+                                        <th class="text-danger">UGIB</th>
+                                        <th>Other GIB</th>
+                                        <th>Non GIB</th>
+                                        <th class="fw-bold text-danger">GI Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-gi"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white text-end">
+                         <small class="text-muted me-2">* แสดงเฉพาะแพทย์แผนก GI หรือมีเคส GI</small>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // 🔥 แก้ URL Cloud Run ของท่านตรงนี้ (ห้ามผิด)
+        // 🔥 เปลี่ยน URL เป็น Cloud Run ของท่าน
         const API_URL = "https://smart-consult-api-890183822347.asia-southeast3.run.app"; 
         const LIFF_ID = "2008753162-pqFRi41y"; 
 
         let currentAdminUID = "";
-        let doctorsData = [];
+        let doctorsData = []; // เก็บข้อมูลดิบ
 
-        async function main() {
+        // Init App
+        window.onload = async function() {
+            initYearFilter();
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
-                const profile = await liff.getProfile();
-                currentAdminUID = profile.userId;
+                currentAdminUID = (await liff.getProfile()).userId;
+                document.getElementById('admin-badge').innerText = "Admin: " + currentAdminUID.substring(0,5);
+                document.getElementById('admin-badge').className = "badge bg-success";
                 
-                document.getElementById('admin-status').innerText = "UID: " + currentAdminUID.substring(0,5) + "...";
-                loadAdminData();
-            } catch (e) {
-                showError("LIFF Error: " + e);
-            }
+                // โหลด 2 อย่าง: Config(Weights) และ Stats
+                loadConfigAndStats();
+
+            } catch(e) { alert("LIFF Error: " + e); }
         }
 
-        async function loadAdminData() {
-            try {
-                // เรียก API loadAdminApp
-                const res = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
-                const data = await res.json();
-
-                if (data.error) {
-                    showError("Access Denied: " + data.error);
-                    return;
-                }
-
-                document.getElementById('admin-status').className = "badge bg-success";
-                document.getElementById('admin-status').innerText = "Admin Access Granted";
-                
-                doctorsData = data.doctors || [];
-                renderDoctorTable();
-                loadStats(); // โหลดสถิติต่อเลย
-
-            } catch (e) {
-                showError("Network Error: " + e);
-            }
+        function initYearFilter() {
+            const sel = document.getElementById('filter-year');
+            const curY = new Date().getFullYear();
+            // ปีงบประมาณไทย = ปี พ.ศ. (เช่น ต.ค. 68 - ก.ย. 69 คือปีงบ 69)
+            // แต่เพื่อความง่ายใช้ ค.ศ. เป็นหลัก: FY2026 = Oct 2025 - Sep 2026
+            sel.innerHTML = `
+                <option value="${curY+1}">ปีงบ ${curY+1} (Oct ${curY} - Sep ${curY+1})</option>
+                <option value="${curY}" selected>ปีงบ ${curY} (Oct ${curY-1} - Sep ${curY})</option>
+                <option value="${curY-1}">ปีงบ ${curY-1} (Oct ${curY-2} - Sep ${curY-1})</option>
+            `;
         }
 
-        function renderDoctorTable() {
-            const tbody = document.getElementById('doctor-list');
-            tbody.innerHTML = "";
+        async function loadConfigAndStats() {
+            // 1. ดึง Weight ล่าสุดมาตั้งต้น
+            const resConf = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
+            const dataConf = await resConf.json();
+            if(dataConf.error) { alert("Access Denied"); return; }
+            doctorsData = dataConf.doctors || [];
+
+            // 2. ดึงสถิติ
+            loadStats(); 
+        }
+
+        async function loadStats() {
+            // คำนวณวันที่ Start/End ตามปีงบประมาณ
+            const year = parseInt(document.getElementById('filter-year').value);
+            const month = document.getElementById('filter-month').value;
             
-            if (doctorsData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">ไม่พบรายชื่อแพทย์ในระบบ (Users Collection ว่างเปล่า)</td></tr>`;
-                return;
+            let start, end;
+            
+            if (month === 'all') {
+                // ทั้งปีงบ: 1 Oct (Year-1) ถึง 1 Oct (Year)
+                start = `${year-1}-10-01T00:00:00`;
+                end = `${year}-10-01T00:00:00`;
+            } else {
+                // รายเดือน
+                const m = parseInt(month);
+                // ถ้าเดือน >= 10 คือปี Year-1, ถ้า < 10 คือปี Year
+                const y = (m >= 10) ? year - 1 : year;
+                // หาวันสิ้นเดือน
+                const nextM = (m === 12) ? 1 : m + 1;
+                const nextY = (m === 12) ? y + 1 : y;
+                
+                start = `${y}-${String(m).padStart(2,'0')}-01T00:00:00`;
+                end = `${nextY}-${String(nextM).padStart(2,'0')}-01T00:00:00`;
             }
 
-            doctorsData.forEach((d, index) => {
-                tbody.innerHTML += `
+            const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${start}&end=${end}`);
+            const stats = await res.json();
+            
+            renderTables(stats);
+        }
+
+        function renderTables(stats) {
+            // Merge stats เข้ากับ doctorsData (ที่มี weights)
+            // stats = [{name: 'หมอ A', c_first: 5, ...}]
+            
+            const tbodyGen = document.getElementById('tbody-general');
+            const tbodyGI = document.getElementById('tbody-gi');
+            tbodyGen.innerHTML = ""; tbodyGI.innerHTML = "";
+
+            doctorsData.forEach((doc, idx) => {
+                // หา stat ของหมอคนนี้
+                const s = stats.find(x => x.name === doc.name) || { c_first:0, c_follow:0, c_ugib:0, c_other:0, c_non:0 };
+                
+                // คำนวณคะแนน
+                const scoreGen = (s.c_first * (doc.w_first||2)) + (s.c_follow * (doc.w_follow||1));
+                const scoreGI = (s.c_ugib * (doc.w_ugib||1)) + (s.c_other * (doc.w_other||1)) + (s.c_non * (doc.w_non||1));
+
+                // 1. General Table
+                tbodyGen.innerHTML += `
                     <tr>
-                        <td class="fw-bold text-primary">${d.name}</td>
-                        <td><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${d.w_first || 1}" id="w_first_${index}"></td>
-                        <td><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${d.w_follow || 1}" id="w_follow_${index}"></td>
-                        <td><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${d.w_ugib || 1}" id="w_ugib_${index}"></td>
+                        <td class="text-start ps-3 fw-bold">${doc.name}</td>
+                        <td class="text-center">${s.c_first}</td>
+                        <td class="text-center">${s.c_follow}</td>
+                        <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${doc.w_first}" id="w_first_${idx}"></td>
+                        <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${doc.w_follow}" id="w_follow_${idx}"></td>
+                        <td class="text-center fw-bold text-primary">${scoreGen.toFixed(1)}</td>
+                        
+                        <input type="hidden" id="w_ugib_${idx}" value="${doc.w_ugib}">
+                        <input type="hidden" id="w_other_${idx}" value="${doc.w_other}">
+                        <input type="hidden" id="w_non_${idx}" value="${doc.w_non}">
+                        <input type="hidden" id="uid_${idx}" value="${doc.uid}">
                     </tr>
                 `;
+
+                // 2. GI Table (โชว์เฉพาะหมอ GI หรือมีเคส GI)
+                const specs = (doc.specialties || "").toString().toLowerCase();
+                const isGI = specs.includes('gi') || specs.includes('gastro') || s.c_ugib > 0 || s.c_other > 0;
+                
+                if (isGI) {
+                    tbodyGI.innerHTML += `
+                        <tr>
+                            <td class="text-start ps-3 fw-bold">${doc.name}</td>
+                            <td class="text-center text-danger bg-light">${s.c_ugib}</td>
+                            <td class="text-center">${s.c_other}</td>
+                            <td class="text-center">${s.c_non}</td>
+                            <td class="text-center fw-bold text-danger">${scoreGI.toFixed(1)}</td>
+                        </tr>
+                    `;
+                }
             });
         }
 
         async function saveWeights() {
-            const btn = document.getElementById('btn-save');
-            btn.innerText = "Saving..."; btn.disabled = true;
-            
-            const payload = doctorsData.map((d, index) => ({
-                docUID: d.uid, // ต้องมั่นใจว่าใน users collection มี field uid เก็บอยู่ด้วย
-                w_first: document.getElementById(`w_first_${index}`).value,
-                w_follow: document.getElementById(`w_follow_${index}`).value,
-                w_ugib: document.getElementById(`w_ugib_${index}`).value
+            // ดึงค่าจาก input กลับมา update array
+            const payload = doctorsData.map((d, idx) => ({
+                docUID: document.getElementById(`uid_${idx}`).value,
+                w_first: document.getElementById(`w_first_${idx}`).value,
+                w_follow: document.getElementById(`w_follow_${idx}`).value,
+                w_ugib: document.getElementById(`w_ugib_${idx}`).value,
+                w_other: document.getElementById(`w_other_${idx}`).value,
+                w_non: document.getElementById(`w_non_${idx}`).value
             }));
 
-            try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        action: 'updateWeights',
-                        uid: currentAdminUID,
-                        payload: payload
-                    })
-                });
-                alert("✅ บันทึกสำเร็จ!");
-            } catch(e) { alert("Error: " + e); }
-            finally { btn.innerText = "บันทึกค่า"; btn.disabled = false; }
+            await fetch(API_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: 'updateWeights', uid: currentAdminUID, payload: payload })
+            });
+            alert("✅ บันทึกเรียบร้อย");
+            loadStats(); // reload เพื่อ update คะแนน
         }
-
-        async function loadStats() {
-            try {
-                const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}`);
-                const stats = await res.json();
-                
-                const box = document.getElementById('stats-box');
-                box.innerHTML = "";
-                
-                if(stats.length === 0) {
-                    box.innerHTML = `<div class="text-danger">ยังไม่มี Logs ข้อมูลการรักษา</div>`;
-                    return;
-                }
-
-                stats.forEach(s => {
-                    // คำนวณคะแนนรวมแบบง่ายๆ
-                    let totalScore = (s.c_first * s.w_first) + (s.c_follow * s.w_follow);
-                    box.innerHTML += `
-                        <div class="col-6 col-md-4 mb-3">
-                            <div class="card p-3 h-100 shadow-sm border-0 bg-light">
-                                <h6 class="fw-bold">${s.name}</h6>
-                                <div class="display-6 text-primary fw-bold">${totalScore.toFixed(1)}</div>
-                                <small class="text-muted">New: ${s.c_first} | FU: ${s.c_follow}</small>
-                            </div>
-                        </div>
-                    `;
-                });
-
-            } catch(e) { console.error(e); }
-        }
-
-        function showError(msg) {
-            const box = document.getElementById('error-box');
-            box.classList.remove('d-none');
-            box.innerText = msg;
-        }
-
-        main();
     </script>
 </body>
 </html>
