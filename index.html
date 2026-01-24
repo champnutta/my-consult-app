@@ -687,18 +687,33 @@
         .catch(e => { console.error("Dash Load Error:", e); }); 
     }
     
-    window.updateDash = function() {
+   window.updateDash = function() {
+        // ดึงค่า Filter
         const scope = document.getElementById('filter-scope').value; 
         const year = parseInt(document.getElementById('filter-year').value);
-        const fDoc = document.getElementById('filter-doc').value; 
+        const fDoc = document.getElementById('filter-doc') ? document.getElementById('filter-doc').value : 'all'; 
         const fSpec = document.getElementById('filter-spec').value;
-        document.getElementById('div-filter-doc').classList.toggle('hidden', scope !== 'all');
         
+        // Toggle Dropdown หมอ
+        const divDoc = document.getElementById('div-filter-doc');
+        if(divDoc) divDoc.classList.toggle('hidden', scope !== 'all');
+        
+        // 🔥 แก้ตรงนี้: Parsing Date ให้ฉลาดขึ้น รองรับ ISO Format
         const filtered = rawDashboardData.filter(item => {
-            const d = new Date(item.date);
+            if (!item.date) return false;
+            
+            // แปลงวันที่ที่ Python ส่งมา (ISO String) เป็น Date Object
+            const d = new Date(item.date); 
+            if (isNaN(d.getTime())) return false; // กัน Error วันที่เพี้ยน
+
             if (d.getFullYear() !== year) return false;
+            
+            // กรองตาม scope (ของฉัน / ทั้งหมด)
+            // หมายเหตุ: ต้องเทียบชื่อให้ตรงเป๊ะ
             if (scope === 'me' && item.doctor !== currentDoctor.name) return false;
             if (scope === 'all' && fDoc !== 'all' && item.doctor !== fDoc) return false;
+            
+            // กรองแผนก
             if (fSpec !== 'all') {
                const itemSpec = (item.specialty || "").toString().trim(); 
                if (itemSpec !== fSpec.trim()) return false;
@@ -706,39 +721,56 @@
             return true;
         });
         
+        // อัปเดตตัวเลขรวม
         document.getElementById('chart-total').innerText = filtered.length;
         
+        // เตรียมข้อมูลกราฟ
         let firstVisitData = Array(12).fill(0);
         let followUpData = Array(12).fill(0);
         
         filtered.forEach(item => {
-            const month = new Date(item.date).getMonth();
-            if (item.type && item.type.toLowerCase().includes('first')) { firstVisitData[month]++; } 
-            else { followUpData[month]++; }
+            const d = new Date(item.date);
+            const month = d.getMonth(); // 0-11
+            
+            const type = (item.type || "").toLowerCase();
+            if (type.includes('first') || type.includes('new')) { 
+                firstVisitData[month]++; 
+            } else { 
+                followUpData[month]++; 
+            }
         });
         
+        // วาดกราฟ
         const ctx1 = document.getElementById('barChart');
         if(barChart) barChart.destroy();
+        
         barChart = new Chart(ctx1, {
             type: 'bar',
             data: {
-                labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], 
+                labels: ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'], 
                 datasets: [
-                    { label: 'First Visit', data: firstVisitData, backgroundColor: '#0d6efd', stack: 'Stack 0' },
-                    { label: 'Follow Up', data: followUpData, backgroundColor: '#9ec5fe', stack: 'Stack 0' }
+                    { label: 'New Case', data: firstVisitData, backgroundColor: '#0d6efd' },
+                    { label: 'Follow Up', data: followUpData, backgroundColor: '#9ec5fe' }
                 ]
             },
             options: {
                 responsive: true,
-                scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } },
+                maintainAspectRatio: false,
+                scales: { 
+                    x: { stacked: true }, 
+                    y: { stacked: true, beginAtZero: true } 
+                },
                 plugins: {
-                    datalabels: { color: 'white', font: { weight: 'bold' }, display: function(context) { return context.dataset.data[context.dataIndex] > 0; } },
-                    tooltip: { mode: 'index', intersect: false }
+                    datalabels: { 
+                        color: 'white', 
+                        font: { weight: 'bold' }, 
+                        formatter: (val) => val > 0 ? val : '' // ซ่อนเลข 0
+                    }
                 }
             }
         });
     }
-
+    
     document.getElementById('consult-form').onsubmit = function(e) {
         e.preventDefault();
         document.getElementById('loading').classList.remove('hidden');
@@ -764,4 +796,5 @@
   </script>
 </body>
 </html>
+
 
