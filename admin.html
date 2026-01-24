@@ -1,348 +1,193 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <meta charset="utf-8">
-  <title>Admin Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  
-  <style>
-    body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; font-size: 0.9rem; }
-    .table-input { width: 60px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; padding: 2px; }
-    .w-col { background-color: #fff3cd !important; }
-    .total-col { background-color: #d1e7dd !important; font-weight: bold; font-size: 1.1em; }
-    .filter-label { font-size: 0.8rem; font-weight: bold; color: #666; margin-right: 5px; }
-    .nav-tabs .nav-link { color: #495057; font-weight: bold; }
-    .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Sarabun', sans-serif; }
+        .card-stat { transition: transform 0.2s; }
+        .card-stat:hover { transform: translateY(-5px); }
+    </style>
 </head>
-<body>
+<body class="p-3">
 
-  <div id="loading" class="d-flex flex-column justify-content-center align-items-center vh-100 bg-white">
-    <div class="spinner-border text-primary" role="status"></div>
-    <div class="mt-3 text-muted small">Checking Admin Permission...</div>
-    <div id="debug-msg" class="mt-2 text-danger small"></div>
-  </div>
+    <div class="container" style="max-width: 800px;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="fw-bold text-primary">⚙️ Admin Dashboard</h4>
+            <span id="admin-status" class="badge bg-secondary">Checking...</span>
+        </div>
 
-  <div id="app" class="container-fluid py-4 d-none">
-    <div class="d-flex justify-content-between align-items-center mb-3 px-2">
-      <h4 class="fw-bold text-primary"><i class="bi bi-speedometer2"></i> Admin Dashboard</h4>
-      <div class="text-end">
-          <span class="d-block fw-bold" id="admin-name">...</span>
-          <span class="d-block text-muted" style="font-size: 0.7rem;" id="admin-uid-display">...</span>
-      </div>
+        <div id="error-box" class="alert alert-danger d-none"></div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-white fw-bold">1. ตั้งค่าคะแนน (Weights)</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ชื่อแพทย์</th>
+                                <th class="text-center">New Case</th>
+                                <th class="text-center">F/U</th>
+                                <th class="text-center">UGIB</th>
+                            </tr>
+                        </thead>
+                        <tbody id="doctor-list">
+                            <tr><td colspan="4" class="text-center py-3">กำลังโหลดข้อมูล...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-white text-end">
+                <button onclick="saveWeights()" id="btn-save" class="btn btn-success"><i class="bi bi-save"></i> บันทึกค่า</button>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white fw-bold d-flex justify-content-between">
+                <span>2. สถิติรวม (Realtime)</span>
+                <button onclick="loadStats()" class="btn btn-sm btn-outline-primary">Refresh</button>
+            </div>
+            <div class="card-body">
+                <div class="row text-center" id="stats-box">
+                   <div class="col-12 text-muted">กด Refresh เพื่อดูข้อมูลล่าสุด</div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="card shadow-sm border-0 mb-3">
-      <div class="card-body py-3">
-        <div class="row g-2 align-items-center">
-            
-            <div class="col-auto d-flex align-items-center">
-                <span class="filter-label">Range:</span>
-                <select id="sel-month-start" class="form-select form-select-sm w-auto"></select>
-                <span class="mx-1">-</span>
-                <select id="sel-month-end" class="form-select form-select-sm w-auto"></select>
-                <select id="sel-year" class="form-select form-select-sm w-auto ms-2"></select>
-            </div>
+    <script>
+        // 🔥 แก้ URL Cloud Run ของท่านตรงนี้ (ห้ามผิด)
+        const API_URL = "https://smart-consult-api-890183822347.asia-southeast3.run.app"; 
+        const LIFF_ID = "2008753162-pqFRi41y"; 
 
-            <div class="col-auto d-flex align-items-center ms-lg-3 border-start ps-lg-3">
-                <span class="filter-label">Dept:</span>
-                <select id="sel-spec" class="form-select form-select-sm" style="min-width: 150px;">
-                    <option value="All">All Departments</option>
-                </select>
-            </div>
+        let currentAdminUID = "";
+        let doctorsData = [];
 
-            <div class="col-auto ms-auto">
-                <button onclick="loadData()" class="btn btn-primary btn-sm"><i class="bi bi-search"></i> แสดงข้อมูล</button>
-                <button onclick="saveWeights()" class="btn btn-success btn-sm ms-1"><i class="bi bi-save"></i> บันทึกค่า</button>
-            </div>
-        </div>
-      </div>
-    </div>
-
-    <ul class="nav nav-tabs mb-3" id="myTab" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="pa-tab" data-bs-toggle="tab" data-bs-target="#pa-pane" type="button" role="tab">
-            <i class="bi bi-clipboard-data"></i> General PA
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="gi-tab" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button" role="tab">
-            <i class="bi bi-lungs"></i> GI Statistics
-        </button>
-      </li>
-    </ul>
-
-    <div class="tab-content" id="myTabContent">
-      <div class="tab-pane fade show active" id="pa-pane" role="tabpanel">
-        <div class="card shadow border-0">
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-bordered table-hover align-middle mb-0 table-sm">
-                <thead class="table-light text-center align-middle">
-                  <tr>
-                    <th rowspan="2" style="min-width: 180px;">แพทย์</th>
-                    <th colspan="2">จำนวนเคส</th>
-                    <th colspan="2" class="w-col">ตัวคูณ (Weight)</th>
-                    <th rowspan="2" class="total-col text-end" style="width: 120px;">General Score</th>
-                  </tr>
-                  <tr class="small text-muted">
-                    <th>First Visit</th>
-                    <th>Follow Up</th>
-                    <th class="w-col">x First</th>
-                    <th class="w-col">x F/U</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-pa"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="tab-pane fade" id="gi-pane" role="tabpanel">
-        <div class="card shadow border-0">
-          <div class="card-body p-0">
-            <div class="table-responsive">
-              <table class="table table-bordered table-hover align-middle mb-0 table-sm">
-                <thead class="table-light text-center align-middle">
-                  <tr>
-                    <th rowspan="2" style="min-width: 180px;">แพทย์</th>
-                    <th colspan="3">สถิติ Diagnosis</th>
-                    <th colspan="3" class="w-col">ตัวคูณ (Optional)</th>
-                    <th rowspan="2" class="total-col text-end" style="width: 120px;">GI Score</th>
-                  </tr>
-                  <tr class="small text-muted">
-                    <th class="text-danger">UGIB</th>
-                    <th class="text-danger">Other GIB</th>
-                    <th class="text-danger">Non GIB</th>
-                    <th class="w-col text-danger">x UGIB</th>
-                    <th class="w-col text-danger">x Other GIB</th>
-                    <th class="w-col text-danger">x Non GIB</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody-gi"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div> 
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-  <script>
-    // **********************************
-    // ⚠️ แก้ URL ให้เป็น Deployment ล่าสุด (ลงท้ายด้วย /exec)
-    const WEB_APP_URL = 'https://smart-consult-api-890183822347.asia-southeast3.run.app'; 
-    const LIFF_ID = '2008753162-pqFRi41y'; 
-    // **********************************
-
-    let currentAdmin = null;
-    let currentData = [];
-
-    window.onload = async function() {
-        setupDropdowns();
-        
-        try {
-            await liff.init({ liffId: LIFF_ID });
-            
-            // กรณีเปิดใน Browser ปกติ ถ้ายังไม่ Login ให้เด้งไป Login
-            if (!liff.isLoggedIn()) { 
-                liff.login(); 
-                return; 
+        async function main() {
+            try {
+                await liff.init({ liffId: LIFF_ID });
+                if (!liff.isLoggedIn()) { liff.login(); return; }
+                const profile = await liff.getProfile();
+                currentAdminUID = profile.userId;
+                
+                document.getElementById('admin-status').innerText = "UID: " + currentAdminUID.substring(0,5) + "...";
+                loadAdminData();
+            } catch (e) {
+                showError("LIFF Error: " + e);
             }
-            
-            const profile = await liff.getProfile();
-            currentAdmin = profile.userId;
-            
-            // แสดงข้อมูล User เบื้องต้น
-            document.getElementById('admin-name').innerText = profile.displayName;
-            document.getElementById('admin-uid-display').innerText = "UID: " + currentAdmin;
-
-            // เริ่มโหลดข้อมูล
-            initAdminApp();
-
-        } catch (err) {
-            document.getElementById('debug-msg').innerText = "LIFF Error: " + err;
-        }
-    };
-
-    function setupDropdowns() {
-        const months = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
-        const mStart = document.getElementById('sel-month-start');
-        const mEnd = document.getElementById('sel-month-end');
-        const curMonth = new Date().getMonth();
-        
-        mStart.innerHTML = ""; mEnd.innerHTML = "";
-        months.forEach((n, i) => {
-            mStart.innerHTML += `<option value="${i+1}" ${i === 0 ? 'selected' : ''}>${n}</option>`; 
-            mEnd.innerHTML += `<option value="${i+1}" ${i === curMonth ? 'selected' : ''}>${n}</option>`; 
-        });
-
-        const y = document.getElementById('sel-year');
-        const cy = new Date().getFullYear();
-        y.innerHTML = `<option value="${cy}">${cy}</option><option value="${cy-1}">${cy-1}</option>`;
-    }
-
-    function initAdminApp() {
-        const start = document.getElementById('sel-month-start').value;
-        const end = document.getElementById('sel-month-end').value;
-        const year = document.getElementById('sel-year').value;
-
-        // เรียก Server
-        fetch(`${WEB_APP_URL}?action=loadAdminApp&uid=${currentAdmin}&start=${start}&end=${end}&year=${year}`)
-        .then(r => r.json())
-        .then(res => {
-            // เช็ค Error จากฝั่ง Server
-            if(res.error) { 
-                document.getElementById('debug-msg').innerHTML = 
-                    `<strong>Access Denied!</strong><br>UID ของคุณไม่อยู่ในระบบ Admin<br>กรุณาเพิ่ม UID นี้ใน Sheet 'Admins':<br><code>${currentAdmin}</code>`;
-                return; 
-            }
-            
-            // 1. สร้าง Dropdown แผนก
-            const specSet = new Set();
-            if(res.doctors) {
-                res.doctors.forEach(d => {
-                    if (d.specialties) {
-                        let specs = Array.isArray(d.specialties) ? d.specialties : String(d.specialties).split(',');
-                        specs.forEach(s => specSet.add(s.trim()));
-                    }
-                });
-            }
-            const selSpec = document.getElementById('sel-spec');
-            selSpec.innerHTML = '<option value="All">All Departments</option>';
-            specSet.forEach(s => { if(s) selSpec.innerHTML += `<option value="${s}">${s}</option>`; });
-
-            // 2. แสดงตาราง
-            currentData = res.stats || [];
-            renderTables();
-
-            document.getElementById('loading').classList.add('d-none');
-            document.getElementById('app').classList.remove('d-none');
-
-        }).catch(err => {
-            document.getElementById('debug-msg').innerText = "Connection Error: " + err + ". โปรดตรวจสอบ URL หรือ Internet";
-        });
-    }
-
-    function loadData() {
-        const start = document.getElementById('sel-month-start').value;
-        const end = document.getElementById('sel-month-end').value;
-        const year = document.getElementById('sel-year').value;
-        const spec = document.getElementById('sel-spec').value;
-        
-        if (parseInt(start) > parseInt(end)) { alert("ช่วงเดือนไม่ถูกต้อง"); return; }
-
-        // Show Loading Overlay (Optional)
-        const btn = document.querySelector('button[onclick="loadData()"]');
-        const oldHtml = btn.innerHTML;
-        btn.innerHTML = 'Loading...'; btn.disabled = true;
-
-        fetch(`${WEB_APP_URL}?action=getAdminStats&uid=${currentAdmin}&startMonth=${start}&endMonth=${end}&year=${year}&filterSpec=${spec}`)
-        .then(r => r.json())
-        .then(data => {
-            if(data.error) { alert("Access Denied"); return; }
-            currentData = data;
-            renderTables();
-            btn.innerHTML = oldHtml; btn.disabled = false;
-        })
-        .catch(e => { alert("Error: " + e); btn.innerHTML = oldHtml; btn.disabled = false; });
-    }
-
-    function renderTables() {
-        const tbodyPA = document.getElementById('tbody-pa');
-        const tbodyGI = document.getElementById('tbody-gi');
-        
-        tbodyPA.innerHTML = ""; tbodyGI.innerHTML = "";
-
-        if (currentData.length === 0) {
-            tbodyPA.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">ไม่พบข้อมูล</td></tr>`;
-            return;
         }
 
-        currentData.forEach((doc, idx) => {
-            // Tab 1: General
-            const scorePA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
-            tbodyPA.innerHTML += `
-                <tr>
-                    <td class="fw-bold px-3">${doc.name}</td>
-                    <td class="text-center">${doc.c_first}</td>
-                    <td class="text-center">${doc.c_follow}</td>
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_first}" onchange="updateVal(${idx}, 'w_first', this.value)"></td>
-                    <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_follow}" onchange="updateVal(${idx}, 'w_follow', this.value)"></td>
-                    <td class="total-col text-end text-success px-3" id="scorePA_${idx}">${scorePA.toFixed(1)}</td>
-                </tr>
-            `;
+        async function loadAdminData() {
+            try {
+                // เรียก API loadAdminApp
+                const res = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
+                const data = await res.json();
 
-            // Tab 2: GI Only
-            const specs = (doc.specialties || "").toLowerCase();
-            const isGI = specs.includes('gi') || specs.includes('gastro');
+                if (data.error) {
+                    showError("Access Denied: " + data.error);
+                    return;
+                }
 
-            if (isGI) { 
-                const scoreGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
-                tbodyGI.innerHTML += `
+                document.getElementById('admin-status').className = "badge bg-success";
+                document.getElementById('admin-status').innerText = "Admin Access Granted";
+                
+                doctorsData = data.doctors || [];
+                renderDoctorTable();
+                loadStats(); // โหลดสถิติต่อเลย
+
+            } catch (e) {
+                showError("Network Error: " + e);
+            }
+        }
+
+        function renderDoctorTable() {
+            const tbody = document.getElementById('doctor-list');
+            tbody.innerHTML = "";
+            
+            if (doctorsData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">ไม่พบรายชื่อแพทย์ในระบบ (Users Collection ว่างเปล่า)</td></tr>`;
+                return;
+            }
+
+            doctorsData.forEach((d, index) => {
+                tbody.innerHTML += `
                     <tr>
-                        <td class="fw-bold px-3">${doc.name}</td>
-                        <td class="text-center text-danger bg-light">${doc.c_ugib}</td>
-                        <td class="text-center text-danger bg-light">${doc.c_other}</td>
-                        <td class="text-center text-danger bg-light">${doc.c_non}</td>
-                        <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_ugib}" onchange="updateVal(${idx}, 'w_ugib', this.value)"></td>
-                        <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_other}" onchange="updateVal(${idx}, 'w_other', this.value)"></td>
-                        <td class="text-center w-col"><input type="number" step="0.1" class="table-input" value="${doc.w_non}" onchange="updateVal(${idx}, 'w_non', this.value)"></td>
-                        <td class="total-col text-end text-success px-3" id="scoreGI_${idx}">${scoreGI.toFixed(1)}</td>
+                        <td class="fw-bold text-primary">${d.name}</td>
+                        <td><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${d.w_first || 1}" id="w_first_${index}"></td>
+                        <td><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${d.w_follow || 1}" id="w_follow_${index}"></td>
+                        <td><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${d.w_ugib || 1}" id="w_ugib_${index}"></td>
                     </tr>
                 `;
-            }
-        });
-        
-        if (tbodyGI.innerHTML === "") {
-             tbodyGI.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">ไม่พบแพทย์สาขา GI ในรายการนี้</td></tr>`;
+            });
         }
-    }
 
-    window.updateVal = function(idx, field, val) {
-        currentData[idx][field] = parseFloat(val) || 0;
-        const doc = currentData[idx];
-        const newPA = (doc.c_first * doc.w_first) + (doc.c_follow * doc.w_follow);
-        const newGI = (doc.c_ugib * doc.w_ugib) + (doc.c_other * doc.w_other) + (doc.c_non * doc.w_non);
+        async function saveWeights() {
+            const btn = document.getElementById('btn-save');
+            btn.innerText = "Saving..."; btn.disabled = true;
+            
+            const payload = doctorsData.map((d, index) => ({
+                docUID: d.uid, // ต้องมั่นใจว่าใน users collection มี field uid เก็บอยู่ด้วย
+                w_first: document.getElementById(`w_first_${index}`).value,
+                w_follow: document.getElementById(`w_follow_${index}`).value,
+                w_ugib: document.getElementById(`w_ugib_${index}`).value
+            }));
 
-        const elPA = document.getElementById(`scorePA_${idx}`);
-        const elGI = document.getElementById(`scoreGI_${idx}`);
-        if(elPA) elPA.innerText = newPA.toFixed(1);
-        if(elGI) elGI.innerText = newGI.toFixed(1);
-    }
+            try {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        action: 'updateWeights',
+                        uid: currentAdminUID,
+                        payload: payload
+                    })
+                });
+                alert("✅ บันทึกสำเร็จ!");
+            } catch(e) { alert("Error: " + e); }
+            finally { btn.innerText = "บันทึกค่า"; btn.disabled = false; }
+        }
 
-    window.saveWeights = function() {
-        const payload = currentData.map(d => ({
-            docUID: d.uid,
-            w_first: d.w_first, w_follow: d.w_follow,
-            w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
-        }));
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}`);
+                const stats = await res.json();
+                
+                const box = document.getElementById('stats-box');
+                box.innerHTML = "";
+                
+                if(stats.length === 0) {
+                    box.innerHTML = `<div class="text-danger">ยังไม่มี Logs ข้อมูลการรักษา</div>`;
+                    return;
+                }
 
-        const btn = document.querySelector('.btn-success');
-        const oldText = btn.innerHTML;
-        btn.innerHTML = "Saving..."; btn.disabled = true;
+                stats.forEach(s => {
+                    // คำนวณคะแนนรวมแบบง่ายๆ
+                    let totalScore = (s.c_first * s.w_first) + (s.c_follow * s.w_follow);
+                    box.innerHTML += `
+                        <div class="col-6 col-md-4 mb-3">
+                            <div class="card p-3 h-100 shadow-sm border-0 bg-light">
+                                <h6 class="fw-bold">${s.name}</h6>
+                                <div class="display-6 text-primary fw-bold">${totalScore.toFixed(1)}</div>
+                                <small class="text-muted">New: ${s.c_first} | FU: ${s.c_follow}</small>
+                            </div>
+                        </div>
+                    `;
+                });
 
-        fetch(WEB_APP_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'updateWeights', uid: currentAdmin, payload: payload })
-        })
-        .then(r => r.json())
-        .then(res => {
-            alert("บันทึกข้อมูลเรียบร้อย ✅");
-            btn.innerHTML = oldText; btn.disabled = false;
-        })
-        .catch(e => {
-            alert("Save Error: " + e);
-            btn.innerHTML = oldText; btn.disabled = false;
-        });
-    }
-  </script>
+            } catch(e) { console.error(e); }
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('error-box');
+            box.classList.remove('d-none');
+            box.innerText = msg;
+        }
+
+        main();
+    </script>
 </body>
 </html>
