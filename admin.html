@@ -3,98 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Admin</title>
+    <title>Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
         body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; }
-        .nav-tabs .nav-link.active { font-weight: bold; border-bottom: 3px solid #0d6efd; color: #0d6efd; }
-        .table-input { width: 70px; text-align: center; }
-        .bg-head { background-color: #eef2f7; }
+        .nav-tabs .nav-link { color: #6c757d; font-weight: 600; }
+        .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd; background: transparent; }
+        .filter-box { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body class="p-3">
-    <div class="container" style="max-width: 900px;">
+    <div class="container" style="max-width: 1000px;">
+        
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="fw-bold text-primary"><i class="bi bi-shield-lock"></i> Admin Dashboard</h4>
-            <span id="admin-badge" class="badge bg-secondary">Checking...</span>
+            <span id="admin-badge" class="badge bg-secondary">Checking Auth...</span>
         </div>
 
-        <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body py-2">
-                <div class="row g-2 align-items-center">
-                    <div class="col-auto fw-bold text-muted small">FILTER:</div>
-                    <div class="col-auto">
-                        <select id="filter-year" class="form-select form-select-sm" onchange="updateDateRange()"></select>
-                    </div>
-                    <div class="col-auto">
-                        <select id="filter-month" class="form-select form-select-sm" onchange="loadStats()">
-                            <option value="all">ทั้งปีงบประมาณ</option>
-                            <option value="10">ตุลาคม</option>
-                            <option value="11">พฤศจิกายน</option>
-                            <option value="12">ธันวาคม</option>
-                            <option value="1">มกราคม</option>
-                            <option value="2">กุมภาพันธ์</option>
-                            <option value="3">มีนาคม</option>
-                            <option value="4">เมษายน</option>
-                            <option value="5">พฤษภาคม</option>
-                            <option value="6">มิถุนายน</option>
-                            <option value="7">กรกฎาคม</option>
-                            <option value="8">สิงหาคม</option>
-                            <option value="9">กันยายน</option>
-                        </select>
-                    </div>
-                    <div class="col text-end">
-                        <button onclick="loadStats()" class="btn btn-primary btn-sm">Refresh</button>
-                    </div>
+        <div class="filter-box mb-4">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="small text-muted fw-bold">รูปแบบการดูข้อมูล</label>
+                    <select id="filter-mode" class="form-select form-select-sm" onchange="renderFilterInputs()">
+                        <option value="fiscal_year" selected>ปีงบประมาณ (ต.ค. - ก.ย.)</option>
+                        <option value="quarter">รายไตรมาส (Quarter)</option>
+                        <option value="month">รายเดือน</option>
+                        <option value="custom">กำหนดเอง (Custom)</option>
+                    </select>
+                </div>
+
+                <div class="col-md-7">
+                    <div id="filter-inputs" class="row g-2"></div>
+                </div>
+
+                <div class="col-md-2 text-end">
+                    <button onclick="loadStats()" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-search"></i> แสดงข้อมูล
+                    </button>
                 </div>
             </div>
+            <div class="mt-2 small text-muted text-end" id="date-range-display"></div>
         </div>
 
-        <ul class="nav nav-tabs mb-3 bg-white rounded shadow-sm px-2 pt-2" id="myTab" role="tablist">
+        <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
             <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general-pane" type="button">📊 General PA</button>
+                <button class="nav-link active" id="gen-tab" data-bs-toggle="tab" data-bs-target="#gen-pane" type="button">📊 General PA</button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="gi-tab" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button">🩸 GI Statistics</button>
+                <button class="nav-link" id="gi-tab-btn" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button">🩸 GI Statistics</button>
             </li>
         </ul>
 
-        <div class="tab-content" id="myTabContent">
+        <div class="tab-content" id="adminTabsContent">
             
-            <div class="tab-pane fade show active" id="general-pane" role="tabpanel">
-                <div class="card shadow-sm border-0">
+            <div class="tab-pane fade show active" id="gen-pane" role="tabpanel">
+                <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
-                                <thead class="bg-head text-center">
+                                <thead class="table-light text-center">
                                     <tr>
-                                        <th class="text-start ps-3">แพทย์</th>
+                                        <th class="text-start ps-4">แพทย์</th>
                                         <th>New Case</th>
                                         <th>F/U</th>
-                                        <th class="text-muted small" style="width: 80px;">x New (2)</th>
-                                        <th class="text-muted small" style="width: 80px;">x F/U (1)</th>
+                                        <th style="width: 80px;" class="small text-muted">Wt. New</th>
+                                        <th style="width: 80px;" class="small text-muted">Wt. F/U</th>
                                         <th class="fw-bold text-primary">Total Score</th>
                                     </tr>
                                 </thead>
-                                <tbody id="tbody-general"></tbody>
+                                <tbody id="tbody-gen"></tbody>
                             </table>
                         </div>
                     </div>
                     <div class="card-footer bg-white text-end">
-                        <button onclick="saveWeights()" class="btn btn-success btn-sm">บันทึก Weight</button>
+                        <button onclick="saveWeights()" class="btn btn-success btn-sm">บันทึกค่า Weight</button>
                     </div>
                 </div>
             </div>
 
             <div class="tab-pane fade" id="gi-pane" role="tabpanel">
-                <div class="card shadow-sm border-0">
+                <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
-                                <thead class="bg-head text-center">
+                                <thead class="table-light text-center">
                                     <tr>
-                                        <th class="text-start ps-3">แพทย์ (GI)</th>
+                                        <th class="text-start ps-4">แพทย์ (GI Only)</th>
                                         <th class="text-danger">UGIB</th>
                                         <th>Other GIB</th>
                                         <th>Non GIB</th>
@@ -106,7 +101,7 @@
                         </div>
                     </div>
                     <div class="card-footer bg-white text-end">
-                         <small class="text-muted me-2">* แสดงเฉพาะแพทย์แผนก GI หรือมีเคส GI</small>
+                        <small class="text-muted">* แสดงเฉพาะแพทย์ GI หรือมีเคส GI</small>
                     </div>
                 </div>
             </div>
@@ -114,124 +109,195 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
     <script>
-        // 🔥 เปลี่ยน URL เป็น Cloud Run ของท่าน
+        // 🔥 แก้ URL Cloud Run ของท่าน
         const API_URL = "https://smart-consult-api-890183822347.asia-southeast3.run.app"; 
         const LIFF_ID = "2008753162-pqFRi41y"; 
 
         let currentAdminUID = "";
-        let doctorsData = []; // เก็บข้อมูลดิบ
+        let doctorsData = [];
 
-        // Init App
         window.onload = async function() {
-            initYearFilter();
+            renderFilterInputs(); // สร้าง input filter ตาม default
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
                 currentAdminUID = (await liff.getProfile()).userId;
-                document.getElementById('admin-badge').innerText = "Admin: " + currentAdminUID.substring(0,5);
-                document.getElementById('admin-badge').className = "badge bg-success";
                 
-                // โหลด 2 อย่าง: Config(Weights) และ Stats
+                document.getElementById('admin-badge').innerText = "Admin Logged In";
+                document.getElementById('admin-badge').className = "badge bg-success";
+
+                // โหลด 2 อย่าง
                 loadConfigAndStats();
 
             } catch(e) { alert("LIFF Error: " + e); }
         }
 
-        function initYearFilter() {
-            const sel = document.getElementById('filter-year');
+        // ================= FILTER LOGIC =================
+        function renderFilterInputs() {
+            const mode = document.getElementById('filter-mode').value;
+            const container = document.getElementById('filter-inputs');
             const curY = new Date().getFullYear();
-            // ปีงบประมาณไทย = ปี พ.ศ. (เช่น ต.ค. 68 - ก.ย. 69 คือปีงบ 69)
-            // แต่เพื่อความง่ายใช้ ค.ศ. เป็นหลัก: FY2026 = Oct 2025 - Sep 2026
-            sel.innerHTML = `
-                <option value="${curY+1}">ปีงบ ${curY+1} (Oct ${curY} - Sep ${curY+1})</option>
-                <option value="${curY}" selected>ปีงบ ${curY} (Oct ${curY-1} - Sep ${curY})</option>
-                <option value="${curY-1}">ปีงบ ${curY-1} (Oct ${curY-2} - Sep ${curY-1})</option>
-            `;
+            
+            let html = '';
+            
+            if(mode === 'fiscal_year') {
+                html = `
+                    <div class="col-12">
+                        <label class="small text-muted">เลือกปีงบประมาณ</label>
+                        <select id="inp-year" class="form-select form-select-sm">
+                            <option value="${curY+1}">ปีงบ ${curY+1} (ต.ค. ${curY} - ก.ย. ${curY+1})</option>
+                            <option value="${curY}" selected>ปีงบ ${curY} (ต.ค. ${curY-1} - ก.ย. ${curY})</option>
+                            <option value="${curY-1}">ปีงบ ${curY-1} (ต.ค. ${curY-2} - ก.ย. ${curY-1})</option>
+                        </select>
+                    </div>`;
+            } else if (mode === 'quarter') {
+                html = `
+                    <div class="col-6">
+                        <label class="small text-muted">ปีงบประมาณ</label>
+                        <select id="inp-year" class="form-select form-select-sm">
+                            <option value="${curY}">${curY}</option>
+                            <option value="${curY-1}">${curY-1}</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="small text-muted">ไตรมาส</label>
+                        <select id="inp-q" class="form-select form-select-sm">
+                            <option value="1">Q1 (ต.ค.-ธ.ค.)</option>
+                            <option value="2">Q2 (ม.ค.-มี.ค.)</option>
+                            <option value="3">Q3 (เม.ย.-มิ.ย.)</option>
+                            <option value="4" selected>Q4 (ก.ค.-ก.ย.)</option>
+                        </select>
+                    </div>`;
+            } else if (mode === 'month') {
+                html = `
+                    <div class="col-6">
+                        <label class="small text-muted">ปี พ.ศ.</label>
+                        <select id="inp-year" class="form-select form-select-sm">
+                            <option value="${curY}" selected>${curY}</option>
+                            <option value="${curY-1}">${curY-1}</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="small text-muted">เดือน</label>
+                        <select id="inp-month" class="form-select form-select-sm">
+                            <option value="1">มกราคม</option>
+                            <option value="2">กุมภาพันธ์</option>
+                            <option value="3">มีนาคม</option>
+                            <option value="4">เมษายน</option>
+                            <option value="5">พฤษภาคม</option>
+                            <option value="6">มิถุนายน</option>
+                            <option value="7">กรกฎาคม</option>
+                            <option value="8">สิงหาคม</option>
+                            <option value="9">กันยายน</option>
+                            <option value="10">ตุลาคม</option>
+                            <option value="11">พฤศจิกายน</option>
+                            <option value="12">ธันวาคม</option>
+                        </select>
+                    </div>`;
+            } else {
+                html = `
+                    <div class="col-6">
+                        <label class="small text-muted">เริ่มต้น</label>
+                        <input type="date" id="inp-start" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-6">
+                        <label class="small text-muted">สิ้นสุด</label>
+                        <input type="date" id="inp-end" class="form-control form-control-sm">
+                    </div>`;
+            }
+            container.innerHTML = html;
         }
 
+        function getFilterDates() {
+            const mode = document.getElementById('filter-mode').value;
+            let start = "", end = "";
+            
+            if(mode === 'fiscal_year') {
+                const y = parseInt(document.getElementById('inp-year').value);
+                start = `${y-1}-10-01`; end = `${y}-10-01`;
+            } 
+            else if(mode === 'quarter') {
+                const y = parseInt(document.getElementById('inp-year').value); // ปีงบ
+                const q = document.getElementById('inp-q').value;
+                // FY2026 -> Q1=Oct25, Q2=Jan26, Q3=Apr26, Q4=Jul26
+                if(q == '1') { start = `${y-1}-10-01`; end = `${y-1}-12-31`; } // หรือ 01-01
+                else if(q == '2') { start = `${y}-01-01`; end = `${y}-04-01`; }
+                else if(q == '3') { start = `${y}-04-01`; end = `${y}-07-01`; }
+                else { start = `${y}-07-01`; end = `${y}-10-01`; }
+            }
+            else if(mode === 'month') {
+                const y = parseInt(document.getElementById('inp-year').value);
+                const m = parseInt(document.getElementById('inp-month').value);
+                start = `${y}-${String(m).padStart(2,'0')}-01`;
+                // หาวันสิ้นเดือน (ขึ้นเดือนใหม่)
+                const nextM = m === 12 ? 1 : m + 1;
+                const nextY = m === 12 ? y + 1 : y;
+                end = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
+            }
+            else {
+                start = document.getElementById('inp-start').value;
+                end = document.getElementById('inp-end').value;
+            }
+            
+            // Append Time
+            return { s: start + "T00:00:00", e: end + "T23:59:59" };
+        }
+
+        // ================= DATA LOADING =================
         async function loadConfigAndStats() {
-            // 1. ดึง Weight ล่าสุดมาตั้งต้น
             const resConf = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
             const dataConf = await resConf.json();
             if(dataConf.error) { alert("Access Denied"); return; }
             doctorsData = dataConf.doctors || [];
-
-            // 2. ดึงสถิติ
-            loadStats(); 
+            
+            loadStats();
         }
 
         async function loadStats() {
-            // คำนวณวันที่ Start/End ตามปีงบประมาณ
-            const year = parseInt(document.getElementById('filter-year').value);
-            const month = document.getElementById('filter-month').value;
+            const range = getFilterDates();
+            document.getElementById('date-range-display').innerText = `ช่วงเวลา: ${range.s.split('T')[0]} ถึง ${range.e.split('T')[0]}`;
             
-            let start, end;
-            
-            if (month === 'all') {
-                // ทั้งปีงบ: 1 Oct (Year-1) ถึง 1 Oct (Year)
-                start = `${year-1}-10-01T00:00:00`;
-                end = `${year}-10-01T00:00:00`;
-            } else {
-                // รายเดือน
-                const m = parseInt(month);
-                // ถ้าเดือน >= 10 คือปี Year-1, ถ้า < 10 คือปี Year
-                const y = (m >= 10) ? year - 1 : year;
-                // หาวันสิ้นเดือน
-                const nextM = (m === 12) ? 1 : m + 1;
-                const nextY = (m === 12) ? y + 1 : y;
-                
-                start = `${y}-${String(m).padStart(2,'0')}-01T00:00:00`;
-                end = `${nextY}-${String(nextM).padStart(2,'0')}-01T00:00:00`;
-            }
-
-            const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${start}&end=${end}`);
+            const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${range.s}&end=${range.e}`);
             const stats = await res.json();
             
             renderTables(stats);
         }
 
         function renderTables(stats) {
-            // Merge stats เข้ากับ doctorsData (ที่มี weights)
-            // stats = [{name: 'หมอ A', c_first: 5, ...}]
-            
-            const tbodyGen = document.getElementById('tbody-general');
+            const tbodyGen = document.getElementById('tbody-gen');
             const tbodyGI = document.getElementById('tbody-gi');
             tbodyGen.innerHTML = ""; tbodyGI.innerHTML = "";
 
             doctorsData.forEach((doc, idx) => {
-                // หา stat ของหมอคนนี้
                 const s = stats.find(x => x.name === doc.name) || { c_first:0, c_follow:0, c_ugib:0, c_other:0, c_non:0 };
                 
-                // คำนวณคะแนน
-                const scoreGen = (s.c_first * (doc.w_first||2)) + (s.c_follow * (doc.w_follow||1));
-                const scoreGI = (s.c_ugib * (doc.w_ugib||1)) + (s.c_other * (doc.w_other||1)) + (s.c_non * (doc.w_non||1));
+                // คำนวณ Score
+                const scoreGen = (s.c_first * doc.w_first) + (s.c_follow * doc.w_follow);
+                const scoreGI = (s.c_ugib * doc.w_ugib) + (s.c_other * doc.w_other) + (s.c_non * doc.w_non);
 
-                // 1. General Table
+                // Render General Row
                 tbodyGen.innerHTML += `
-                    <tr>
-                        <td class="text-start ps-3 fw-bold">${doc.name}</td>
+                    <tr data-uid="${doc.uid}">
+                        <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
                         <td class="text-center">${s.c_first}</td>
                         <td class="text-center">${s.c_follow}</td>
-                        <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${doc.w_first}" id="w_first_${idx}"></td>
-                        <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center" value="${doc.w_follow}" id="w_follow_${idx}"></td>
+                        <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center mx-auto" style="width:60px" value="${doc.w_first}" onchange="updateLocalWeight(${idx}, 'w_first', this.value)"></td>
+                        <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center mx-auto" style="width:60px" value="${doc.w_follow}" onchange="updateLocalWeight(${idx}, 'w_follow', this.value)"></td>
                         <td class="text-center fw-bold text-primary">${scoreGen.toFixed(1)}</td>
-                        
-                        <input type="hidden" id="w_ugib_${idx}" value="${doc.w_ugib}">
-                        <input type="hidden" id="w_other_${idx}" value="${doc.w_other}">
-                        <input type="hidden" id="w_non_${idx}" value="${doc.w_non}">
-                        <input type="hidden" id="uid_${idx}" value="${doc.uid}">
                     </tr>
                 `;
 
-                // 2. GI Table (โชว์เฉพาะหมอ GI หรือมีเคส GI)
+                // Render GI Row (เฉพาะหมอ GI)
                 const specs = (doc.specialties || "").toString().toLowerCase();
-                const isGI = specs.includes('gi') || specs.includes('gastro') || s.c_ugib > 0 || s.c_other > 0;
+                const isGI = specs.includes('gi') || specs.includes('gastro') || s.c_ugib > 0;
                 
                 if (isGI) {
                     tbodyGI.innerHTML += `
-                        <tr>
-                            <td class="text-start ps-3 fw-bold">${doc.name}</td>
+                        <tr data-uid="${doc.uid}">
+                            <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
                             <td class="text-center text-danger bg-light">${s.c_ugib}</td>
                             <td class="text-center">${s.c_other}</td>
                             <td class="text-center">${s.c_non}</td>
@@ -242,23 +308,30 @@
             });
         }
 
+        function updateLocalWeight(idx, field, val) {
+            doctorsData[idx][field] = parseFloat(val);
+        }
+
         async function saveWeights() {
-            // ดึงค่าจาก input กลับมา update array
-            const payload = doctorsData.map((d, idx) => ({
-                docUID: document.getElementById(`uid_${idx}`).value,
-                w_first: document.getElementById(`w_first_${idx}`).value,
-                w_follow: document.getElementById(`w_follow_${idx}`).value,
-                w_ugib: document.getElementById(`w_ugib_${idx}`).value,
-                w_other: document.getElementById(`w_other_${idx}`).value,
-                w_non: document.getElementById(`w_non_${idx}`).value
+            // สร้าง Payload จาก doctorsData ที่ถูกอัปเดตแล้ว
+            const payload = doctorsData.map(d => ({
+                docUID: d.uid,
+                w_first: d.w_first, w_follow: d.w_follow,
+                w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
             }));
 
-            await fetch(API_URL, {
+            const res = await fetch(API_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'updateWeights', uid: currentAdminUID, payload: payload })
             });
-            alert("✅ บันทึกเรียบร้อย");
-            loadStats(); // reload เพื่อ update คะแนน
+            const result = await res.json();
+            
+            if(result.status === 'success') {
+                alert("✅ บันทึก Weight เรียบร้อย!");
+                loadStats(); // Reload เพื่อคำนวณคะแนนใหม่
+            } else {
+                alert("Error: " + JSON.stringify(result));
+            }
         }
     </script>
 </body>
