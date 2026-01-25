@@ -6,6 +6,8 @@
     <title>Admin Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <style>
         body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; }
         .nav-tabs .nav-link { color: #6c757d; font-weight: 600; }
@@ -24,17 +26,24 @@
         <div class="filter-box mb-4">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="small text-muted fw-bold">รูปแบบการดูข้อมูล</label>
+                    <label class="small text-muted fw-bold">ช่วงเวลา</label>
                     <select id="filter-mode" class="form-select form-select-sm" onchange="renderFilterInputs()">
-                        <option value="fiscal_year" selected>ปีงบประมาณ (ต.ค. - ก.ย.)</option>
-                        <option value="quarter">รายไตรมาส (Quarter)</option>
+                        <option value="fiscal_year" selected>ปีงบประมาณ</option>
+                        <option value="quarter">รายไตรมาส</option>
                         <option value="month">รายเดือน</option>
-                        <option value="custom">กำหนดเอง (Custom)</option>
+                        <option value="custom">กำหนดเอง</option>
                     </select>
                 </div>
 
-                <div class="col-md-7">
+                <div class="col-md-4">
                     <div id="filter-inputs" class="row g-2"></div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="small text-muted fw-bold">แผนก (Department)</label>
+                    <select id="filter-dept" class="form-select form-select-sm" onchange="applyLocalFilter()">
+                        <option value="All" selected>ทั้งหมด (All)</option>
+                    </select>
                 </div>
 
                 <div class="col-md-2 text-end">
@@ -44,6 +53,15 @@
                 </div>
             </div>
             <div class="mt-2 small text-muted text-end" id="date-range-display"></div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">
+                <i class="bi bi-graph-up"></i> แนวโน้มการปรึกษาแยกรายแผนก (Competitive View)
+            </div>
+            <div class="card-body">
+                <canvas id="compChart" style="max-height: 300px;"></canvas>
+            </div>
         </div>
 
         <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
@@ -65,6 +83,7 @@
                                 <thead class="table-light text-center">
                                     <tr>
                                         <th class="text-start ps-4">แพทย์</th>
+                                        <th>แผนก</th>
                                         <th>New Case</th>
                                         <th>F/U</th>
                                         <th style="width: 80px;" class="small text-muted">Wt. New</th>
@@ -112,15 +131,18 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 🔥 แก้ URL Cloud Run ของท่าน
+        // 🔥 URL Cloud Run ของท่าน
         const API_URL = "https://smart-consult-api-890183822347.asia-southeast3.run.app"; 
         const LIFF_ID = "2008753162-pqFRi41y"; 
 
         let currentAdminUID = "";
         let doctorsData = [];
+        let currentStats = []; // เก็บสถิติล่าสุดไว้เพื่อ Filter Frontend
+        let currentGraphData = {}; 
+        let compChart = null;
 
         window.onload = async function() {
-            renderFilterInputs(); // สร้าง input filter ตาม default
+            renderFilterInputs();
             try {
                 await liff.init({ liffId: LIFF_ID });
                 if (!liff.isLoggedIn()) { liff.login(); return; }
@@ -129,84 +151,42 @@
                 document.getElementById('admin-badge').innerText = "Admin Logged In";
                 document.getElementById('admin-badge').className = "badge bg-success";
 
-                // โหลด 2 อย่าง
                 loadConfigAndStats();
 
             } catch(e) { alert("LIFF Error: " + e); }
         }
 
-        // ================= FILTER LOGIC =================
+        // ================= FILTER UI LOGIC =================
         function renderFilterInputs() {
             const mode = document.getElementById('filter-mode').value;
             const container = document.getElementById('filter-inputs');
             const curY = new Date().getFullYear();
             
             let html = '';
-            
             if(mode === 'fiscal_year') {
-                html = `
-                    <div class="col-12">
-                        <label class="small text-muted">เลือกปีงบประมาณ</label>
-                        <select id="inp-year" class="form-select form-select-sm">
-                            <option value="${curY+1}">ปีงบ ${curY+1} (ต.ค. ${curY} - ก.ย. ${curY+1})</option>
-                            <option value="${curY}" selected>ปีงบ ${curY} (ต.ค. ${curY-1} - ก.ย. ${curY})</option>
-                            <option value="${curY-1}">ปีงบ ${curY-1} (ต.ค. ${curY-2} - ก.ย. ${curY-1})</option>
-                        </select>
-                    </div>`;
+                html = `<select id="inp-year" class="form-select form-select-sm w-100">
+                            <option value="${curY+1}">ปีงบ ${curY+1}</option>
+                            <option value="${curY}" selected>ปีงบ ${curY}</option>
+                            <option value="${curY-1}">ปีงบ ${curY-1}</option>
+                        </select>`;
             } else if (mode === 'quarter') {
-                html = `
-                    <div class="col-6">
-                        <label class="small text-muted">ปีงบประมาณ</label>
-                        <select id="inp-year" class="form-select form-select-sm">
-                            <option value="${curY}">${curY}</option>
-                            <option value="${curY-1}">${curY-1}</option>
-                        </select>
-                    </div>
-                    <div class="col-6">
-                        <label class="small text-muted">ไตรมาส</label>
-                        <select id="inp-q" class="form-select form-select-sm">
-                            <option value="1">Q1 (ต.ค.-ธ.ค.)</option>
-                            <option value="2">Q2 (ม.ค.-มี.ค.)</option>
-                            <option value="3">Q3 (เม.ย.-มิ.ย.)</option>
-                            <option value="4" selected>Q4 (ก.ค.-ก.ย.)</option>
-                        </select>
-                    </div>`;
+                html = `<div class="d-flex gap-2">
+                            <select id="inp-year" class="form-select form-select-sm"><option value="${curY}">${curY}</option><option value="${curY-1}">${curY-1}</option></select>
+                            <select id="inp-q" class="form-select form-select-sm">
+                                <option value="1">Q1 (ต.ค.-ธ.ค.)</option><option value="2">Q2 (ม.ค.-มี.ค.)</option><option value="3">Q3 (เม.ย.-มิ.ย.)</option><option value="4" selected>Q4 (ก.ค.-ก.ย.)</option>
+                            </select>
+                        </div>`;
             } else if (mode === 'month') {
-                html = `
-                    <div class="col-6">
-                        <label class="small text-muted">ปี พ.ศ.</label>
-                        <select id="inp-year" class="form-select form-select-sm">
-                            <option value="${curY}" selected>${curY}</option>
-                            <option value="${curY-1}">${curY-1}</option>
-                        </select>
-                    </div>
-                    <div class="col-6">
-                        <label class="small text-muted">เดือน</label>
-                        <select id="inp-month" class="form-select form-select-sm">
-                            <option value="1">มกราคม</option>
-                            <option value="2">กุมภาพันธ์</option>
-                            <option value="3">มีนาคม</option>
-                            <option value="4">เมษายน</option>
-                            <option value="5">พฤษภาคม</option>
-                            <option value="6">มิถุนายน</option>
-                            <option value="7">กรกฎาคม</option>
-                            <option value="8">สิงหาคม</option>
-                            <option value="9">กันยายน</option>
-                            <option value="10">ตุลาคม</option>
-                            <option value="11">พฤศจิกายน</option>
-                            <option value="12">ธันวาคม</option>
-                        </select>
-                    </div>`;
+                html = `<div class="d-flex gap-2">
+                            <select id="inp-year" class="form-select form-select-sm"><option value="${curY}" selected>${curY}</option></select>
+                            <select id="inp-month" class="form-select form-select-sm">
+                                <option value="1">ม.ค.</option><option value="2">ก.พ.</option><option value="3">มี.ค.</option><option value="4">เม.ย.</option>
+                                <option value="5">พ.ค.</option><option value="6">มิ.ย.</option><option value="7">ก.ค.</option><option value="8">ส.ค.</option>
+                                <option value="9">ก.ย.</option><option value="10">ต.ค.</option><option value="11">พ.ย.</option><option value="12">ธ.ค.</option>
+                            </select>
+                        </div>`;
             } else {
-                html = `
-                    <div class="col-6">
-                        <label class="small text-muted">เริ่มต้น</label>
-                        <input type="date" id="inp-start" class="form-control form-control-sm">
-                    </div>
-                    <div class="col-6">
-                        <label class="small text-muted">สิ้นสุด</label>
-                        <input type="date" id="inp-end" class="form-control form-control-sm">
-                    </div>`;
+                html = `<div class="d-flex gap-2"><input type="date" id="inp-start" class="form-control form-control-sm"><input type="date" id="inp-end" class="form-control form-control-sm"></div>`;
             }
             container.innerHTML = html;
         }
@@ -220,10 +200,9 @@
                 start = `${y-1}-10-01`; end = `${y}-10-01`;
             } 
             else if(mode === 'quarter') {
-                const y = parseInt(document.getElementById('inp-year').value); // ปีงบ
+                const y = parseInt(document.getElementById('inp-year').value);
                 const q = document.getElementById('inp-q').value;
-                // FY2026 -> Q1=Oct25, Q2=Jan26, Q3=Apr26, Q4=Jul26
-                if(q == '1') { start = `${y-1}-10-01`; end = `${y-1}-12-31`; } // หรือ 01-01
+                if(q == '1') { start = `${y-1}-10-01`; end = `${y-1}-12-31`; }
                 else if(q == '2') { start = `${y}-01-01`; end = `${y}-04-01`; }
                 else if(q == '3') { start = `${y}-04-01`; end = `${y}-07-01`; }
                 else { start = `${y}-07-01`; end = `${y}-10-01`; }
@@ -232,7 +211,6 @@
                 const y = parseInt(document.getElementById('inp-year').value);
                 const m = parseInt(document.getElementById('inp-month').value);
                 start = `${y}-${String(m).padStart(2,'0')}-01`;
-                // หาวันสิ้นเดือน (ขึ้นเดือนใหม่)
                 const nextM = m === 12 ? 1 : m + 1;
                 const nextY = m === 12 ? y + 1 : y;
                 end = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
@@ -241,47 +219,64 @@
                 start = document.getElementById('inp-start').value;
                 end = document.getElementById('inp-end').value;
             }
-            
-            // Append Time
             return { s: start + "T00:00:00", e: end + "T23:59:59" };
         }
 
-        // ================= DATA LOADING =================
+        // ================= DATA LOGIC =================
         async function loadConfigAndStats() {
             const resConf = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
             const dataConf = await resConf.json();
             if(dataConf.error) { alert("Access Denied"); return; }
             doctorsData = dataConf.doctors || [];
             
+            // Build Dept Filter
+            const deptSet = new Set();
+            doctorsData.forEach(d => {
+                if(d.specialties) d.specialties.forEach(s => deptSet.add(s));
+            });
+            const selDept = document.getElementById('filter-dept');
+            deptSet.forEach(s => selDept.innerHTML += `<option value="${s}">${s}</option>`);
+
             loadStats();
         }
 
         async function loadStats() {
             const range = getFilterDates();
-            document.getElementById('date-range-display').innerText = `ช่วงเวลา: ${range.s.split('T')[0]} ถึง ${range.e.split('T')[0]}`;
+            document.getElementById('date-range-display').innerText = `Data Range: ${range.s.split('T')[0]} to ${range.e.split('T')[0]}`;
             
             const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${range.s}&end=${range.e}`);
-            const stats = await res.json();
+            const result = await res.json();
             
-            renderTables(stats);
+            // Backend ส่งมา 2 ส่วน: table (รวม) และ graph (แยกเดือน)
+            currentStats = result.table;
+            currentGraphData = result.graph;
+
+            applyLocalFilter(); // Render Table
+            renderChart();      // Render Graph
         }
 
-        function renderTables(stats) {
+        function applyLocalFilter() {
+            const fDept = document.getElementById('filter-dept').value;
+            
             const tbodyGen = document.getElementById('tbody-gen');
             const tbodyGI = document.getElementById('tbody-gi');
             tbodyGen.innerHTML = ""; tbodyGI.innerHTML = "";
 
             doctorsData.forEach((doc, idx) => {
-                const s = stats.find(x => x.name === doc.name) || { c_first:0, c_follow:0, c_ugib:0, c_other:0, c_non:0 };
-                
-                // คำนวณ Score
+                // Filter Department Logic
+                const docSpecs = (doc.specialties || []).map(s=>s.toString());
+                if (fDept !== 'All' && !docSpecs.includes(fDept)) return; // ข้ามถ้าแผนกไม่ตรง
+
+                const s = currentStats.find(x => x.name === doc.name) || { c_first:0, c_follow:0, c_ugib:0, c_other:0, c_non:0 };
                 const scoreGen = (s.c_first * doc.w_first) + (s.c_follow * doc.w_follow);
                 const scoreGI = (s.c_ugib * doc.w_ugib) + (s.c_other * doc.w_other) + (s.c_non * doc.w_non);
+                const specDisplay = doc.specialties ? doc.specialties.join(", ") : "-";
 
-                // Render General Row
+                // Gen Table
                 tbodyGen.innerHTML += `
-                    <tr data-uid="${doc.uid}">
+                    <tr>
                         <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
+                        <td><span class="badge bg-light text-dark border">${specDisplay}</span></td>
                         <td class="text-center">${s.c_first}</td>
                         <td class="text-center">${s.c_follow}</td>
                         <td class="text-center"><input type="number" step="0.1" class="form-control form-control-sm text-center mx-auto" style="width:60px" value="${doc.w_first}" onchange="updateLocalWeight(${idx}, 'w_first', this.value)"></td>
@@ -290,13 +285,11 @@
                     </tr>
                 `;
 
-                // Render GI Row (เฉพาะหมอ GI)
-                const specs = (doc.specialties || "").toString().toLowerCase();
-                const isGI = specs.includes('gi') || specs.includes('gastro') || s.c_ugib > 0;
-                
+                // GI Table
+                const isGI = docSpecs.some(s => s.toLowerCase().includes('gi') || s.toLowerCase().includes('gastro')) || s.c_ugib > 0;
                 if (isGI) {
                     tbodyGI.innerHTML += `
-                        <tr data-uid="${doc.uid}">
+                        <tr>
                             <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
                             <td class="text-center text-danger bg-light">${s.c_ugib}</td>
                             <td class="text-center">${s.c_other}</td>
@@ -308,30 +301,63 @@
             });
         }
 
+        function renderChart() {
+            // currentGraphData structure: { "2026-01": {"Nephro": 10, "GI": 5}, ... }
+            const ctx = document.getElementById('compChart');
+            
+            // 1. Prepare Labels (Sorted Months)
+            const labels = Object.keys(currentGraphData).sort();
+            
+            // 2. Extract Unique Specialties
+            const specialties = new Set();
+            Object.values(currentGraphData).forEach(m => {
+                Object.keys(m).forEach(s => specialties.add(s));
+            });
+            const specsArray = Array.from(specialties);
+
+            // 3. Build Datasets
+            const datasets = specsArray.map((spec, i) => {
+                const data = labels.map(label => currentGraphData[label][spec] || 0);
+                const color = `hsl(${(i * 360) / specsArray.length}, 70%, 50%)`; // Auto Color
+                return {
+                    label: spec,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color,
+                    tension: 0.3,
+                    fill: false
+                };
+            });
+
+            if(compChart) compChart.destroy();
+            compChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true } },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+        }
+
         function updateLocalWeight(idx, field, val) {
             doctorsData[idx][field] = parseFloat(val);
         }
 
         async function saveWeights() {
-            // สร้าง Payload จาก doctorsData ที่ถูกอัปเดตแล้ว
             const payload = doctorsData.map(d => ({
                 docUID: d.uid,
                 w_first: d.w_first, w_follow: d.w_follow,
                 w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
             }));
-
             const res = await fetch(API_URL, {
                 method: 'POST',
                 body: JSON.stringify({ action: 'updateWeights', uid: currentAdminUID, payload: payload })
             });
-            const result = await res.json();
-            
-            if(result.status === 'success') {
-                alert("✅ บันทึก Weight เรียบร้อย!");
-                loadStats(); // Reload เพื่อคำนวณคะแนนใหม่
-            } else {
-                alert("Error: " + JSON.stringify(result));
-            }
+            const r = await res.json();
+            if(r.status === 'success') { alert("✅ บันทึกสำเร็จ"); loadStats(); }
         }
     </script>
 </body>
