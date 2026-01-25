@@ -30,6 +30,8 @@
     .search-results { position: absolute; width: 100%; background: white; border: 1px solid #ddd; max-height: 200px; overflow-y: auto; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .search-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
     .cursor-pointer { cursor: pointer; }
+    .clickable-edit { cursor: pointer; border-bottom: 1px dashed #ccc; }
+    .clickable-edit:hover { color: #0d6efd; border-bottom-color: #0d6efd; }
   </style>
 </head>
 <body>
@@ -212,7 +214,7 @@
                             <label class="form-label fw-bold">เลือกกิจกรรม</label>
                             <select id="act-name" class="form-select mb-3" required>
                                 <option value="" selected disabled>-- เลือกกิจกรรม --</option>
-                                </select>
+                            </select>
 
                             <label class="form-label fw-bold">วันที่เข้าร่วม</label>
                             <input type="date" id="act-date" class="form-control mb-3" required>
@@ -247,7 +249,7 @@
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-            <h6 class="modal-title fw-bold">แก้ไขข้อมูล / Status</h6>
+            <h6 class="modal-title fw-bold">แก้ไขข้อมูล / Note</h6>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -275,7 +277,6 @@
     const LIFF_ID = '2008753162-pqFRi41y'; 
     // ************************************************
 
-    // Activity List
     const ACTIVITY_LIST = [
         "Interesting Case Conference", "Admission Conference", "Morbidity and Mortality", 
         "Journal Club", "Topic Conference", "Grand round", "Grand round (หน่วย)", 
@@ -291,8 +292,7 @@
     let compChart = null;
     let myPatientsRaw = []; 
     let dashData = { personal: [], competitive: {} };
-    
-    let isDashLoaded = false;
+    let wardModal = null; // Store modal instance
 
     if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
@@ -318,7 +318,7 @@
         .then(res => {
             if (res.status === 'success') {
                 currentDoctor = res.doctor;
-                currentDoctor.uid = uid; // Save UID
+                currentDoctor.uid = uid; 
                 existingPatients = res.patients;
                 allDoctors = res.doctors;
                 startApp();
@@ -360,11 +360,6 @@
         window.scrollTo(0,0);
     }
 
-    // ... (Functions: loadMyPatients, renderPatientList, toggleStatus, openWardModal, saveWardChange, etc. - คงเดิมจากโค้ดเก่า) ...
-    // เพื่อความกระชับ ผมจะละไว้ในฐานที่เข้าใจว่าฟังก์ชันเดิมยังอยู่ครบนะครับ 
-    // ถ้าท่านก๊อปปี้ทับ อย่าลืมเอาฟังก์ชัน helper เก่าๆ มาด้วย หรือใช้ตัวที่ผมส่งให้ก่อนหน้านี้ประกอบกัน
-    // แต่เพื่อความชัวร์ ผมใส่ฟังก์ชันสำคัญๆ ให้ครบด้านล่างครับ 👇
-
     function loadMyPatients() {
        const listContainer = document.getElementById('patient-list-container'); 
        listContainer.innerHTML = '<div class="text-center mt-4"><span class="spinner-border text-primary"></span></div>';
@@ -381,8 +376,10 @@
         const wards = new Set();
         myPatientsRaw.forEach(p => { if(p.ward && String(p.ward).trim()!=='-') wards.add(String(p.ward).trim()); });
         const sel = document.getElementById('filter-ward');
+        const oldVal = sel.value;
         sel.innerHTML = '<option value="All">All Wards</option>';
         Array.from(wards).sort().forEach(w => sel.innerHTML += `<option value="${w}">${w}</option>`);
+        if(oldVal && oldVal !== 'All') sel.value = oldVal; 
     }
 
     function renderPatientList() {
@@ -402,34 +399,79 @@
 
         filtered.forEach(p => {
             const isActive = String(p.status).toLowerCase() === 'active';
+            
+            // Safe Strings for onClick
+            const safeWard = (p.ward||'').replace(/'/g, "\\'");
+            const safeNote = (p.note||'').replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, " ");
+
             container.innerHTML += `
                 <div class="card mb-2 border-0 shadow-sm">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between">
                             <div style="width:70%">
                                 <span class="badge ${isActive?'bg-success':'bg-secondary'}">${p.status}</span>
-                                <span class="fw-bold ms-1 text-primary"><i class="bi bi-geo-alt-fill"></i> ${p.ward||'-'}</span>
+                                <span class="fw-bold ms-1 text-primary clickable-edit" onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')"><i class="bi bi-geo-alt-fill"></i> ${p.ward||'-'}</span>
                                 <h6 class="mb-0 fw-bold mt-1">${p.name}</h6>
                                 <small class="text-muted">HN: ${p.hn}</small>
                             </div>
                             <div class="text-end">
-                                <button class="btn btn-sm btn-light border" onclick="selectHistory('${p.name}','${p.hn}','${p.ward||''}','${p.note||''}')">Follow</button>
-                                <button class="btn btn-sm ${isActive?'btn-outline-danger':'btn-outline-success'} mt-1" onclick="toggleStatus('${p.hn}','${p.status}')">${isActive?'Off':'On'}</button>
+                                <button class="btn btn-sm btn-light border" onclick="selectHistory('${p.name}','${p.hn}','${safeWard}','${safeNote}')">Follow</button>
+                                <button class="btn btn-sm ${isActive?'btn-outline-danger':'btn-outline-success'} mt-1" onclick="toggleStatus('${p.hn}','${p.status}')">${isActive?'Offservice':'Active'}</button>
                             </div>
                         </div>
-                        ${p.note ? `<div class="mt-2 p-2 bg-light border rounded small"><i class="bi bi-pencil"></i> ${p.note}</div>` : ''}
+                        <div class="mt-2 p-2 bg-light border rounded small clickable-edit" onclick="openWardModal('${p.hn}', '${safeWard}', '${safeNote}')">
+                            <i class="bi bi-pencil"></i> ${p.note ? p.note : '<span class="text-muted fst-italic">Add note...</span>'}
+                        </div>
                     </div>
                 </div>`;
         });
     }
 
     window.toggleStatus = function(hn, status) {
-        if(!confirm("ยืนยันเปลี่ยนสถานะ?")) return;
         const newStatus = status === 'Active' ? 'Offservice' : 'Active';
+        if(!confirm(`เปลี่ยนสถานะเป็น ${newStatus}?`)) return;
+        
         fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({action:'updateStatus', payload:{hn, status: newStatus}}) });
-        const p = myPatientsRaw.find(x=>x.hn==hn); if(p) p.status = newStatus; renderPatientList();
+        // Update Local
+        const p = myPatientsRaw.find(x=>x.hn==hn); if(p) p.status = newStatus; 
+        renderPatientList();
     }
     
+    // Modal Functions
+    window.openWardModal = function(hn, currentWard, currentNote) {
+        if(!wardModal) wardModal = new bootstrap.Modal(document.getElementById('wardModal'));
+        document.getElementById('edit-hn').value = hn;
+        document.getElementById('edit-ward-input').value = (currentWard === '-' || currentWard === 'null' ? '' : currentWard);
+        document.getElementById('edit-note-input').value = (currentNote === 'undefined' || !currentNote) ? '' : currentNote;
+        
+        // Quick Wards
+        const quickBox = document.getElementById('quick-wards');
+        quickBox.innerHTML = "";
+        const existingWards = Array.from(document.getElementById('filter-ward').options).map(o=>o.value).filter(v=>v!=='All');
+        existingWards.forEach(w => {
+            quickBox.innerHTML += `<span class="badge bg-light text-dark border cursor-pointer me-1" onclick="document.getElementById('edit-ward-input').value='${w}'">${w}</span>`;
+        });
+        
+        wardModal.show();
+    }
+
+    window.saveWardChange = function() {
+        const hn = document.getElementById('edit-hn').value;
+        const newWard = document.getElementById('edit-ward-input').value || '-';
+        const newNote = document.getElementById('edit-note-input').value;
+        
+        const p = myPatientsRaw.find(x => x.hn == hn);
+        if(p) { p.ward = newWard; p.note = newNote; }
+        
+        renderPatientList();
+        wardModal.hide();
+
+        fetch(WEB_APP_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'updateStatus', payload: { hn: hn, status: p.status, ward: newWard, note: newNote } })
+        });
+    }
+
     window.selectHistory = function(n, h, w, note) { 
         switchTab('input'); document.getElementById('v2').click();
         document.getElementById('p-name').value=n; document.getElementById('p-hn').value=h;
@@ -478,7 +520,7 @@
         // 2. Competitive Line Chart
         const compData = dashData.competitive || {};
         const ctx2 = document.getElementById('compChart');
-        const labels = Object.keys(compData).sort(); // Months
+        const labels = Object.keys(compData).sort(); 
         const specs = new Set();
         Object.values(compData).forEach(m => Object.keys(m).forEach(s => specs.add(s)));
         const specsArr = Array.from(specs);
@@ -486,7 +528,7 @@
         const datasets = specsArr.map((spec, i) => {
             const data = labels.map(lbl => compData[lbl][spec] || 0);
             const color = `hsl(${(i * 360) / specsArr.length}, 70%, 50%)`;
-            return { label: spec, data: data, borderColor: color, backgroundColor: color, tension: 0.3 };
+            return { label: spec, data: data, borderColor: color, backgroundColor: color, tension: 0.3, fill: false };
         });
 
         if(compChart) compChart.destroy();
@@ -510,7 +552,7 @@
             role: document.getElementById('act-role').value,
             uid: currentDoctor.uid,
             doctorName: currentDoctor.name,
-            specialty: currentDoctor.specialties[0] // Use first specialty
+            specialty: currentDoctor.specialties[0]
         };
 
         fetch(WEB_APP_URL, {
@@ -527,53 +569,7 @@
         .catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
     }
 
-    // ... (Scan, ProcessFile, Search Patient Functions from previous code) ...
-    // ใส่ function พื้นฐานเดิมกลับมาด้วยนะครับ (processFile, scanImage, filterPatients etc.)
-    
-    window.toggleMode = function() {
-        const type = document.querySelector('input[name="visitType"]:checked').value;
-        if(type.includes('First')) { document.getElementById('mode-scan').classList.remove('hidden'); document.getElementById('mode-search').classList.add('hidden'); } 
-        else { document.getElementById('mode-scan').classList.add('hidden'); document.getElementById('mode-search').classList.remove('hidden'); }
-    }
-    
-    window.checkGI = function() {
-        const selected = document.querySelector('input[name="specialty"]:checked');
-        const giDiv = document.getElementById('div-gi-diag');
-        if (selected && (selected.value.toUpperCase().includes('GI'))) giDiv.classList.remove('hidden');
-        else giDiv.classList.add('hidden');
-    }
-
-    // Search Logic
-    window.filterPatients = function() {
-       const q = document.getElementById('patient-search').value.toLowerCase();
-       const box = document.getElementById('search-results'); box.innerHTML="";
-       if(q.length < 2) { box.classList.add('hidden'); return; }
-       const found = existingPatients.filter(p => p.name.toLowerCase().includes(q) || String(p.hn).includes(q));
-       box.classList.remove('hidden');
-       found.forEach(p => box.innerHTML += `<div class="search-item" onclick="fillPatient('${p.name}','${p.hn}')">${p.name} (${p.hn})</div>`);
-    }
-    window.fillPatient = function(n,h){ document.getElementById('p-name').value=n; document.getElementById('p-hn').value=h; document.getElementById('search-results').classList.add('hidden'); }
-    
-    // Save Consult Logic
-    document.getElementById('consult-form').onsubmit = function(e) {
-        e.preventDefault();
-        const hn = document.getElementById('p-hn').value;
-        if(!hn) { alert("ระบุ HN"); return; }
-        
-        const payload = {
-            doctorName: currentDoctor.name,
-            specialty: document.querySelector('input[name="specialty"]:checked').value,
-            patientName: document.getElementById('p-name').value,
-            hn: hn,
-            visitType: document.querySelector('input[name="visitType"]:checked').value,
-            diagnosis: document.getElementById('div-gi-diag').classList.contains('hidden') ? "" : document.getElementById('gi-diagnosis').value,
-            ward: document.getElementById('p-ward').value,
-            note: document.getElementById('p-note').value
-        };
-        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("Saved!"); location.reload(); });
-    }
-    
-    // Scan & Process File Functions (ย่อ)
+    // --- STANDARD FUNCTIONS (SCAN, SEARCH) ---
     window.processFile = function(input) {
         const f = input.files[0]; if(!f) return;
         document.getElementById('btn-scan').classList.remove('hidden');
@@ -599,6 +595,47 @@
         }).catch(()=>{ document.getElementById('btn-scan').innerText = "Failed"; });
     }
     window.openExternal = function() { if(liff.isInClient()) liff.openWindow({url:window.location.href, external:true}); }
+    
+    window.toggleMode = function() {
+        const type = document.querySelector('input[name="visitType"]:checked').value;
+        if(type.includes('First')) { document.getElementById('mode-scan').classList.remove('hidden'); document.getElementById('mode-search').classList.add('hidden'); } 
+        else { document.getElementById('mode-scan').classList.add('hidden'); document.getElementById('mode-search').classList.remove('hidden'); }
+    }
+    
+    window.checkGI = function() {
+        const selected = document.querySelector('input[name="specialty"]:checked');
+        const giDiv = document.getElementById('div-gi-diag');
+        if (selected && (selected.value.toUpperCase().includes('GI'))) giDiv.classList.remove('hidden');
+        else giDiv.classList.add('hidden');
+    }
+
+    window.filterPatients = function() {
+       const q = document.getElementById('patient-search').value.toLowerCase();
+       const box = document.getElementById('search-results'); box.innerHTML="";
+       if(q.length < 2) { box.classList.add('hidden'); return; }
+       const found = existingPatients.filter(p => p.name.toLowerCase().includes(q) || String(p.hn).includes(q));
+       box.classList.remove('hidden');
+       found.forEach(p => box.innerHTML += `<div class="search-item" onclick="fillPatient('${p.name}','${p.hn}')">${p.name} (${p.hn})</div>`);
+    }
+    window.fillPatient = function(n,h){ document.getElementById('p-name').value=n; document.getElementById('p-hn').value=h; document.getElementById('search-results').classList.add('hidden'); }
+    
+    document.getElementById('consult-form').onsubmit = function(e) {
+        e.preventDefault();
+        const hn = document.getElementById('p-hn').value;
+        if(!hn) { alert("ระบุ HN"); return; }
+        
+        const payload = {
+            doctorName: currentDoctor.name,
+            specialty: document.querySelector('input[name="specialty"]:checked').value,
+            patientName: document.getElementById('p-name').value,
+            hn: hn,
+            visitType: document.querySelector('input[name="visitType"]:checked').value,
+            diagnosis: document.getElementById('div-gi-diag').classList.contains('hidden') ? "" : document.getElementById('gi-diagnosis').value,
+            ward: document.getElementById('p-ward').value,
+            note: document.getElementById('p-note').value
+        };
+        fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("Saved!"); location.reload(); });
+    }
 
   </script>
 </body>
