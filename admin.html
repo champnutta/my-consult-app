@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
         body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; }
@@ -14,10 +15,9 @@
         .nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 3px solid #0d6efd; background: transparent; }
         .filter-box { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .table-hover tbody tr:hover { background-color: #f1f3f5; }
-        .cursor-pointer { cursor: pointer; }
-        /* ปรับขนาดช่อง Input Weight ให้พอดี */
         .input-weight { width: 60px; text-align: center; border: 1px solid #dee2e6; border-radius: 4px; padding: 2px; }
         .input-weight:focus { border-color: #86b7fe; outline: 0; box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); }
+        .hidden-row { display: none !important; }
     </style>
 </head>
 <body class="p-3">
@@ -31,7 +31,7 @@
         <div class="filter-box mb-4">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="small text-muted fw-bold">ช่วงเวลา (Global)</label>
+                    <label class="small text-muted fw-bold">ช่วงเวลา (Global Filter)</label>
                     <select id="filter-mode" class="form-select form-select-sm" onchange="renderFilterInputs()">
                         <option value="fiscal_year" selected>ปีงบประมาณ</option>
                         <option value="quarter">รายไตรมาส</option>
@@ -43,7 +43,10 @@
                     <div id="filter-inputs" class="row g-2"></div>
                 </div>
                 <div class="col-md-3">
-                    <div class="small text-muted text-end pt-4" id="date-range-display">Loading...</div>
+                    <label class="small text-muted fw-bold">กรองแผนก (Table Only)</label>
+                    <select id="filter-dept" class="form-select form-select-sm" onchange="applyDepartmentFilter()">
+                        <option value="All" selected>แสดงทุกแผนก</option>
+                    </select>
                 </div>
                 <div class="col-md-2 text-end">
                     <button onclick="loadStats()" class="btn btn-primary btn-sm w-100 fw-bold">
@@ -51,6 +54,7 @@
                     </button>
                 </div>
             </div>
+            <div class="mt-2 small text-muted text-end" id="date-range-display">Loading...</div>
         </div>
 
         <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
@@ -63,6 +67,9 @@
             <li class="nav-item">
                 <button class="nav-link" id="act-tab-btn" data-bs-toggle="tab" data-bs-target="#act-pane" type="button">📝 Activity Report</button>
             </li>
+            <li class="nav-item">
+                <button class="nav-link" id="trend-tab-btn" data-bs-toggle="tab" data-bs-target="#trend-pane" type="button" onclick="loadCompetitiveGraph()">📈 Trends & Analysis</button>
+            </li>
         </ul>
 
         <div class="tab-content" id="adminTabsContent">
@@ -71,7 +78,7 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
+                            <table class="table table-hover align-middle mb-0" id="table-gen">
                                 <thead class="table-light text-center">
                                     <tr>
                                         <th class="text-start ps-4">แพทย์</th>
@@ -88,35 +95,13 @@
                         </div>
                     </div>
                     <div class="card-footer bg-white text-end">
-                        <button onclick="saveWeights()" class="btn btn-success btn-sm fw-bold">
-                            <i class="bi bi-save"></i> Save Weights
-                        </button>
+                        <button onclick="saveWeights()" class="btn btn-success btn-sm fw-bold"><i class="bi bi-save"></i> Save Weights</button>
                     </div>
                 </div>
             </div>
 
             <div class="tab-pane fade" id="gi-pane" role="tabpanel">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light text-center">
-                                    <tr>
-                                        <th class="text-start ps-4">แพทย์ (GI Only)</th>
-                                        <th class="text-danger">UGIB</th>
-                                        <th>Other GIB</th>
-                                        <th>Non GIB</th>
-                                        <th class="fw-bold text-danger">GI Score</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-gi"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="card-footer bg-white text-end">
-                        <small class="text-muted">* แสดงเฉพาะแพทย์ GI หรือมีเคส GI เท่านั้น</small>
-                    </div>
-                </div>
+                <div class="card border-0 shadow-sm"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light text-center"><tr><th class="text-start ps-4">แพทย์ (GI Only)</th><th class="text-danger">UGIB</th><th>Other GIB</th><th>Non GIB</th><th class="fw-bold text-danger">GI Score</th></tr></thead><tbody id="tbody-gi"></tbody></table></div></div></div>
             </div>
 
             <div class="tab-pane fade" id="act-pane" role="tabpanel">
@@ -124,61 +109,38 @@
                     <div class="card-header bg-white py-3">
                         <div class="row g-2">
                             <div class="col-md-3">
-                                <label class="small text-muted fw-bold">รูปแบบการแสดงผล</label>
                                 <div class="btn-group w-100" role="group">
                                     <input type="radio" class="btn-check" name="actView" id="view-summary" value="summary" checked onchange="renderActivityTab()">
-                                    <label class="btn btn-outline-primary btn-sm" for="view-summary"><i class="bi bi-table"></i> สรุปยอด</label>
-                                    
+                                    <label class="btn btn-outline-primary btn-sm" for="view-summary">สรุปยอด</label>
                                     <input type="radio" class="btn-check" name="actView" id="view-detail" value="detail" onchange="renderActivityTab()">
-                                    <label class="btn btn-outline-primary btn-sm" for="view-detail"><i class="bi bi-list-ul"></i> รายละเอียด</label>
+                                    <label class="btn btn-outline-primary btn-sm" for="view-detail">รายละเอียด</label>
                                 </div>
                             </div>
-                            
-                            <div class="col-md-3">
-                                <label class="small text-muted fw-bold">แผนก</label>
-                                <select id="act-filter-dept" class="form-select form-select-sm" onchange="renderActivityTab()">
-                                    <option value="All">ทุกแผนก</option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-3">
-                                <label class="small text-muted fw-bold">แพทย์</label>
-                                <select id="act-filter-doc" class="form-select form-select-sm" onchange="renderActivityTab()">
-                                    <option value="All">แพทย์ทุกคน</option>
-                                </select>
-                            </div>
-                            
-                            <div class="col-md-3 text-end align-self-end">
-                                <span class="badge bg-info text-dark fs-6" id="act-total-badge">Loading...</span>
-                            </div>
+                            <div class="col-md-3"><select id="act-filter-doc" class="form-select form-select-sm" onchange="renderActivityTab()"><option value="All">แพทย์ทุกคน</option></select></div>
+                            <div class="col-md-3 text-end align-self-end"><span class="badge bg-info text-dark fs-6" id="act-total-badge">...</span></div>
                         </div>
                     </div>
-
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table id="tbl-act-summary" class="table table-hover align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="ps-4">ชื่อแพทย์</th>
-                                        <th>แผนก</th>
-                                        <th class="text-center">จำนวนกิจกรรม (ครั้ง)</th>
-                                        <th class="text-end pe-4">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-act-summary"></tbody>
-                            </table>
+                            <table id="tbl-act-summary" class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-4">ชื่อแพทย์</th><th>แผนก</th><th class="text-center">จำนวน (ครั้ง)</th><th class="text-end pe-4">Action</th></tr></thead><tbody id="tbody-act-summary"></tbody></table>
+                            <table id="tbl-act-detail" class="table table-hover align-middle mb-0 d-none"><thead class="table-light"><tr><th class="ps-4">วันที่</th><th>กิจกรรม</th><th>แพทย์</th><th>บทบาท</th></tr></thead><tbody id="tbody-act-detail"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                            <table id="tbl-act-detail" class="table table-hover align-middle mb-0 d-none">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="ps-4">วันที่</th>
-                                        <th>กิจกรรม</th>
-                                        <th>แพทย์</th>
-                                        <th>บทบาท</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-act-detail"></tbody>
-                            </table>
+            <div class="tab-pane fade" id="trend-pane" role="tabpanel">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-graph-up-arrow"></i> Competitive Graph (ย้อนหลัง 12 เดือน)</span>
+                        <button onclick="loadCompetitiveGraph()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 400px;">
+                            <canvas id="compChart"></canvas>
+                        </div>
+                        <div class="text-center mt-3 text-muted small">
+                            * กราฟแสดงผลข้อมูลจริงย้อนหลัง 1 ปี (Rolling 12 Months) โดยไม่ขึ้นกับตัวเลือกวันที่ด้านบน
                         </div>
                     </div>
                 </div>
@@ -190,7 +152,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // 🔥 แก้ URL Cloud Run ของท่าน
         const API_URL = "https://smart-consult-api-890183822347.asia-southeast3.run.app"; 
         const LIFF_ID = "2008753162-pqFRi41y"; 
 
@@ -198,6 +159,7 @@
         let doctorsData = [];
         let currentStats = []; 
         let currentActivities = []; 
+        let compChart = null;
 
         window.onload = async function() {
             renderFilterInputs();
@@ -207,13 +169,11 @@
                 currentAdminUID = (await liff.getProfile()).userId;
                 document.getElementById('admin-badge').innerText = "Admin Ready";
                 document.getElementById('admin-badge').className = "badge bg-success";
-                
-                // เริ่มโหลดข้อมูล
                 loadConfigAndStats();
             } catch(e) { alert("LIFF Error: " + e); }
         }
 
-        // ================= FILTER LOGIC (ครบถ้วน) =================
+        // ================= FILTER LOGIC =================
         function renderFilterInputs() {
             const mode = document.getElementById('filter-mode').value;
             const container = document.getElementById('filter-inputs');
@@ -221,35 +181,11 @@
             let html = '';
             
             if(mode === 'fiscal_year') {
-                html = `<select id="inp-year" class="form-select form-select-sm w-100">
-                            <option value="${curY+1}">ปีงบ ${curY+1} (ต.ค. ${curY} - ก.ย. ${curY+1})</option>
-                            <option value="${curY}" selected>ปีงบ ${curY} (ต.ค. ${curY-1} - ก.ย. ${curY})</option>
-                            <option value="${curY-1}">ปีงบ ${curY-1} (ต.ค. ${curY-2} - ก.ย. ${curY-1})</option>
-                        </select>`;
+                html = `<select id="inp-year" class="form-select form-select-sm w-100"><option value="${curY+1}">ปีงบ ${curY+1}</option><option value="${curY}" selected>ปีงบ ${curY}</option><option value="${curY-1}">ปีงบ ${curY-1}</option></select>`;
             } else if (mode === 'quarter') {
-                html = `<div class="d-flex gap-2">
-                            <select id="inp-year" class="form-select form-select-sm">
-                                <option value="${curY}">${curY}</option>
-                                <option value="${curY-1}">${curY-1}</option>
-                            </select>
-                            <select id="inp-q" class="form-select form-select-sm">
-                                <option value="1">Q1 (ต.ค.-ธ.ค.)</option>
-                                <option value="2">Q2 (ม.ค.-มี.ค.)</option>
-                                <option value="3">Q3 (เม.ย.-มิ.ย.)</option>
-                                <option value="4" selected>Q4 (ก.ค.-ก.ย.)</option>
-                            </select>
-                        </div>`;
+                html = `<div class="d-flex gap-2"><select id="inp-year" class="form-select form-select-sm"><option value="${curY}">${curY}</option><option value="${curY-1}">${curY-1}</option></select><select id="inp-q" class="form-select form-select-sm"><option value="1">Q1 (ต.ค.-ธ.ค.)</option><option value="2">Q2 (ม.ค.-มี.ค.)</option><option value="3">Q3 (เม.ย.-มิ.ย.)</option><option value="4" selected>Q4 (ก.ค.-ก.ย.)</option></select></div>`;
             } else if (mode === 'month') {
-                html = `<div class="d-flex gap-2">
-                            <select id="inp-year" class="form-select form-select-sm">
-                                <option value="${curY}" selected>${curY}</option>
-                            </select>
-                            <select id="inp-month" class="form-select form-select-sm">
-                                <option value="1">ม.ค.</option><option value="2">ก.พ.</option><option value="3">มี.ค.</option><option value="4">เม.ย.</option>
-                                <option value="5">พ.ค.</option><option value="6">มิ.ย.</option><option value="7">ก.ค.</option><option value="8">ส.ค.</option>
-                                <option value="9">ก.ย.</option><option value="10">ต.ค.</option><option value="11">พ.ย.</option><option value="12">ธ.ค.</option>
-                            </select>
-                        </div>`;
+                html = `<div class="d-flex gap-2"><select id="inp-year" class="form-select form-select-sm"><option value="${curY}" selected>${curY}</option></select><select id="inp-month" class="form-select form-select-sm"><option value="1">ม.ค.</option><option value="2">ก.พ.</option><option value="3">มี.ค.</option><option value="4">เม.ย.</option><option value="5">พ.ค.</option><option value="6">มิ.ย.</option><option value="7">ก.ค.</option><option value="8">ส.ค.</option><option value="9">ก.ย.</option><option value="10">ต.ค.</option><option value="11">พ.ย.</option><option value="12">ธ.ค.</option></select></div>`;
             } else {
                 html = `<div class="d-flex gap-2"><input type="date" id="inp-start" class="form-control form-control-sm"><input type="date" id="inp-end" class="form-control form-control-sm"></div>`;
             }
@@ -282,26 +218,24 @@
             return { s: start + "T00:00:00", e: end + "T23:59:59" };
         }
 
-        // --- DATA LOADING ---
+        // ================= DATA LOADING =================
         async function loadConfigAndStats() {
-            // 1. โหลดข้อมูลแพทย์และ Config
             const resConf = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
             const dataConf = await resConf.json();
             if(dataConf.error) { alert("Access Denied"); return; }
             doctorsData = dataConf.doctors || [];
             
-            // Build Dept & Doctor Dropdowns for Activity Tab
+            // Setup Filters
             const deptSet = new Set();
             const docSel = document.getElementById('act-filter-doc');
-            // Reset options
             docSel.innerHTML = '<option value="All">แพทย์ทุกคน</option>';
-            document.getElementById('act-filter-dept').innerHTML = '<option value="All">ทุกแผนก</option>';
+            document.getElementById('filter-dept').innerHTML = '<option value="All">แสดงทุกแผนก</option>';
 
             doctorsData.forEach(d => {
                 if(d.specialties) d.specialties.forEach(s => deptSet.add(s));
                 docSel.innerHTML += `<option value="${d.name}">${d.name}</option>`;
             });
-            deptSet.forEach(s => document.getElementById('act-filter-dept').innerHTML += `<option value="${s}">${s}</option>`);
+            deptSet.forEach(s => document.getElementById('filter-dept').innerHTML += `<option value="${s}">${s}</option>`);
 
             loadStats();
         }
@@ -310,18 +244,18 @@
             const range = getFilterDates();
             document.getElementById('date-range-display').innerText = `${range.s.split('T')[0]} - ${range.e.split('T')[0]}`;
             
-            // 2. โหลดสถิติจาก Backend
             const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${range.s}&end=${range.e}`);
             const result = await res.json();
             
             currentStats = result.table || [];
             currentActivities = result.activities || [];
 
-            renderGeneralTabs(); // Tab 1 & 2
-            renderActivityTab(); // Tab 3
+            renderGeneralTabs(); 
+            renderActivityTab();
+            // Note: กราฟแยกไปโหลดเมื่อกด Tab 4 หรือจะโหลดเลยก็ได้ แต่แยกดีกว่า
         }
 
-        // --- RENDER FUNCTIONS ---
+        // ================= TAB 1 & 2: TABLES =================
         function renderGeneralTabs() {
             const tbodyGen = document.getElementById('tbody-gen');
             const tbodyGI = document.getElementById('tbody-gi');
@@ -329,15 +263,15 @@
 
             doctorsData.forEach((doc, idx) => {
                 const s = currentStats.find(x => x.name === doc.name) || { c_first:0, c_follow:0, c_ugib:0, c_other:0, c_non:0 };
-                
-                // คำนวณคะแนน
                 const scoreGen = (s.c_first * doc.w_first) + (s.c_follow * doc.w_follow);
                 const scoreGI = (s.c_ugib * doc.w_ugib) + (s.c_other * doc.w_other) + (s.c_non * doc.w_non);
                 const specDisplay = doc.specialties ? doc.specialties.join(", ") : "-";
+                // ใช้ data-dept เพื่อทำ Filter ฝั่ง Frontend
+                const deptAttr = doc.specialties ? doc.specialties.join(",") : "";
 
-                // Tab 1: General
+                // Tab 1 Row
                 tbodyGen.innerHTML += `
-                    <tr>
+                    <tr data-dept="${deptAttr}">
                         <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
                         <td><span class="badge bg-light text-dark border">${specDisplay}</span></td>
                         <td class="text-center">${s.c_first}</td>
@@ -348,10 +282,8 @@
                     </tr>
                 `;
 
-                // Tab 2: GI (เฉพาะหมอ GI หรือมีเคส GI)
-                const docSpecs = (doc.specialties || []).map(s => s.toString().toLowerCase());
-                const isGI = docSpecs.some(s => s.includes('gi') || s.includes('gastro')) || s.c_ugib > 0;
-                
+                // Tab 2 Row (GI)
+                const isGI = (doc.specialties||[]).some(s => s.toLowerCase().includes('gi') || s.toLowerCase().includes('gastro')) || s.c_ugib > 0;
                 if(isGI) {
                     tbodyGI.innerHTML += `
                         <tr>
@@ -364,113 +296,126 @@
                     `;
                 }
             });
+            applyDepartmentFilter(); // Apply filter ทันทีหลัง Render
         }
 
+        // 🔥 Fix: Department Filter Function
+        function applyDepartmentFilter() {
+            const selectedDept = document.getElementById('filter-dept').value;
+            const rows = document.querySelectorAll('#tbody-gen tr');
+            
+            rows.forEach(row => {
+                const depts = row.getAttribute('data-dept');
+                if (selectedDept === 'All') {
+                    row.classList.remove('hidden-row');
+                } else {
+                    if (depts.includes(selectedDept)) {
+                        row.classList.remove('hidden-row');
+                    } else {
+                        row.classList.add('hidden-row');
+                    }
+                }
+            });
+        }
+
+        // ================= TAB 3: ACTIVITY =================
         function renderActivityTab() {
             const viewMode = document.querySelector('input[name="actView"]:checked').value;
-            const fDept = document.getElementById('act-filter-dept').value;
             const fDoc = document.getElementById('act-filter-doc').value;
             
-            // Filter ข้อมูล
             let filteredAct = currentActivities.filter(act => {
-                const docInfo = doctorsData.find(d => d.name === act.doctor);
-                const docSpecs = docInfo ? (docInfo.specialties || []).map(s=>s.toString()) : [];
-                
-                if (fDept !== 'All' && !docSpecs.includes(fDept)) return false;
                 if (fDoc !== 'All' && act.doctor !== fDoc) return false;
                 return true;
             });
 
             document.getElementById('act-total-badge').innerText = `${filteredAct.length} รายการ`;
-
             const tblSummary = document.getElementById('tbl-act-summary');
             const tblDetail = document.getElementById('tbl-act-detail');
             const tbodySum = document.getElementById('tbody-act-summary');
             const tbodyDet = document.getElementById('tbody-act-detail');
-            
-            tbodySum.innerHTML = "";
-            tbodyDet.innerHTML = "";
+            tbodySum.innerHTML = ""; tbodyDet.innerHTML = "";
 
             if (viewMode === 'summary') {
-                tblSummary.classList.remove('d-none');
-                tblDetail.classList.add('d-none');
-
-                // Group by Doctor
+                tblSummary.classList.remove('d-none'); tblDetail.classList.add('d-none');
                 const grouped = {};
                 filteredAct.forEach(act => {
                     if(!grouped[act.doctor]) grouped[act.doctor] = { count: 0, name: act.doctor };
                     grouped[act.doctor].count++;
                 });
-
-                // Render Summary Row
-                const sortedGroups = Object.values(grouped).sort((a,b)=>b.count - a.count);
-                sortedGroups.forEach(g => {
+                Object.values(grouped).sort((a,b)=>b.count - a.count).forEach(g => {
                     const docInfo = doctorsData.find(d => d.name === g.name);
                     const specs = docInfo ? (docInfo.specialties || []).join(", ") : "-";
-                    
-                    tbodySum.innerHTML += `
-                        <tr>
-                            <td class="ps-4 fw-bold text-primary">${g.name}</td>
-                            <td><span class="badge bg-light text-dark border">${specs}</span></td>
-                            <td class="text-center fw-bold fs-5">${g.count}</td>
-                            <td class="text-end pe-4">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="viewDoctorDetail('${g.name}')">
-                                    <i class="bi bi-eye"></i> ดูรายละเอียด
-                                </button>
-                            </td>
-                        </tr>
-                    `;
+                    tbodySum.innerHTML += `<tr><td class="ps-4 fw-bold text-primary">${g.name}</td><td><span class="badge bg-light text-dark border">${specs}</span></td><td class="text-center fw-bold fs-5">${g.count}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-secondary" onclick="viewDoctorDetail('${g.name}')"><i class="bi bi-eye"></i> รายละเอียด</button></td></tr>`;
                 });
-                if(sortedGroups.length === 0) tbodySum.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
-
             } else {
-                tblSummary.classList.add('d-none');
-                tblDetail.classList.remove('d-none');
-
-                // Sort by Date (Newest first)
+                tblSummary.classList.add('d-none'); tblDetail.classList.remove('d-none');
                 filteredAct.sort((a,b) => new Date(b.date) - new Date(a.date));
-
                 filteredAct.forEach(act => {
-                    const d = act.date.split('T')[0];
-                    tbodyDet.innerHTML += `
-                        <tr>
-                            <td class="ps-4 text-muted">${d}</td>
-                            <td class="fw-bold">${act.activity}</td>
-                            <td>${act.doctor}</td>
-                            <td><span class="badge bg-secondary">${act.role}</span></td>
-                        </tr>
-                    `;
+                    tbodyDet.innerHTML += `<tr><td class="ps-4 text-muted">${act.date.split('T')[0]}</td><td class="fw-bold">${act.activity}</td><td>${act.doctor}</td><td><span class="badge bg-secondary">${act.role}</span></td></tr>`;
                 });
-                if(filteredAct.length === 0) tbodyDet.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">ไม่พบข้อมูลตามเงื่อนไข</td></tr>`;
             }
         }
 
-        // --- ACTIONS ---
-        window.viewDoctorDetail = function(docName) {
-            document.getElementById('act-filter-doc').value = docName;
-            document.getElementById('view-detail').checked = true;
-            renderActivityTab();
+        // ================= TAB 4: COMPETITIVE GRAPH (Rolling 1 Year) =================
+        async function loadCompetitiveGraph() {
+            // คำนวณวันย้อนหลัง 1 ปี (Rolling)
+            const today = new Date();
+            const lastYear = new Date();
+            lastYear.setFullYear(today.getFullYear() - 1);
+            
+            const s = lastYear.toISOString().split('T')[0] + "T00:00:00";
+            const e = today.toISOString().split('T')[0] + "T23:59:59";
+
+            const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${s}&end=${e}`);
+            const result = await res.json();
+            const graphData = result.graph || {};
+
+            renderGraph(graphData);
         }
 
+        function renderGraph(data) {
+            const ctx = document.getElementById('compChart');
+            const labels = Object.keys(data).sort();
+            const specialties = new Set();
+            Object.values(data).forEach(m => Object.keys(m).forEach(s => specialties.add(s)));
+            const specsArray = Array.from(specialties);
+
+            const datasets = specsArray.map((spec, i) => {
+                const vals = labels.map(lbl => data[lbl][spec] || 0);
+                const color = `hsl(${(i * 360) / specsArray.length}, 70%, 50%)`;
+                return { label: spec, data: vals, borderColor: color, backgroundColor: color, tension: 0.3, fill: false };
+            });
+
+            if(compChart) compChart.destroy();
+            compChart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: labels, datasets: datasets },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: {
+                            // 🔥 เรียง Tooltip ตามคะแนน (มาก -> น้อย)
+                            itemSort: function(a, b) { return b.parsed.y - a.parsed.y; }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- UTILS ---
+        window.viewDoctorDetail = function(docName) {
+            document.getElementById('act-filter-doc').value = docName;
+            document.getElementById('view-detail').click();
+        }
         function updW(idx, field, val) { doctorsData[idx][field] = parseFloat(val); }
-        
         async function saveWeights() {
-            const btn = document.querySelector('button[onclick="saveWeights()"]');
-            btn.innerHTML = "Saving..."; btn.disabled = true;
-            
             const payload = doctorsData.map(d => ({
                 docUID: d.uid, w_first: d.w_first, w_follow: d.w_follow, w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
             }));
-            
-            try {
-                await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'updateWeights', uid: currentAdminUID, payload: payload })
-                });
-                alert("✅ บันทึก Weight เรียบร้อย");
-                loadStats();
-            } catch(e) { alert("Error: "+e); }
-            finally { btn.innerHTML = '<i class="bi bi-save"></i> Save Weights'; btn.disabled = false; }
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateWeights', uid: currentAdminUID, payload: payload }) });
+            alert("✅ บันทึกสำเร็จ"); loadStats();
         }
     </script>
 </body>
