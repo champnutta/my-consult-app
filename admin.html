@@ -31,7 +31,7 @@
         <div class="filter-box mb-4">
             <div class="row g-2 align-items-end">
                 <div class="col-md-3">
-                    <label class="small text-muted fw-bold">ช่วงเวลา (Global Filter)</label>
+                    <label class="small text-muted fw-bold">ช่วงเวลา (Global)</label>
                     <select id="filter-mode" class="form-select form-select-sm" onchange="renderFilterInputs()">
                         <option value="fiscal_year" selected>ปีงบประมาณ</option>
                         <option value="quarter">รายไตรมาส</option>
@@ -58,18 +58,11 @@
         </div>
 
         <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
-            <li class="nav-item">
-                <button class="nav-link active" id="gen-tab" data-bs-toggle="tab" data-bs-target="#gen-pane" type="button">📊 General PA</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" id="gi-tab-btn" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button">🩸 GI Statistics</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" id="act-tab-btn" data-bs-toggle="tab" data-bs-target="#act-pane" type="button">📝 Activity Report</button>
-            </li>
-            <li class="nav-item">
-                <button class="nav-link" id="trend-tab-btn" data-bs-toggle="tab" data-bs-target="#trend-pane" type="button" onclick="loadCompetitiveGraph()">📈 Trends & Analysis</button>
-            </li>
+            <li class="nav-item"><button class="nav-link active" id="gen-tab" data-bs-toggle="tab" data-bs-target="#gen-pane" type="button">📊 General PA</button></li>
+            <li class="nav-item"><button class="nav-link" id="gi-tab-btn" data-bs-toggle="tab" data-bs-target="#gi-pane" type="button">🩸 GI Statistics</button></li>
+            <li class="nav-item"><button class="nav-link" id="act-tab-btn" data-bs-toggle="tab" data-bs-target="#act-pane" type="button">📝 Activity Report</button></li>
+            <li class="nav-item"><button class="nav-link" id="trend-tab-btn" data-bs-toggle="tab" data-bs-target="#trend-pane" type="button" onclick="loadCompetitiveGraph()">📈 Trends</button></li>
+            <li class="nav-item"><button class="nav-link text-dark" id="user-tab-btn" data-bs-toggle="tab" data-bs-target="#user-pane" type="button"><i class="bi bi-person-plus-fill"></i> Users</button></li>
         </ul>
 
         <div class="tab-content" id="adminTabsContent">
@@ -78,30 +71,15 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" id="table-gen">
-                                <thead class="table-light text-center">
-                                    <tr>
-                                        <th class="text-start ps-4">แพทย์</th>
-                                        <th>แผนก</th>
-                                        <th>New Case</th>
-                                        <th>F/U</th>
-                                        <th style="width: 80px;" class="small text-muted">Wt. New</th>
-                                        <th style="width: 80px;" class="small text-muted">Wt. F/U</th>
-                                        <th class="fw-bold text-primary">Total Score</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-gen"></tbody>
-                            </table>
+                            <table class="table table-hover align-middle mb-0"><thead class="table-light text-center"><tr><th class="text-start ps-4">แพทย์</th><th>แผนก</th><th>New</th><th>F/U</th><th>Wt.New</th><th>Wt.F/U</th><th>Score</th></tr></thead><tbody id="tbody-gen"></tbody></table>
                         </div>
                     </div>
-                    <div class="card-footer bg-white text-end">
-                        <button onclick="saveWeights()" class="btn btn-success btn-sm fw-bold"><i class="bi bi-save"></i> Save Weights</button>
-                    </div>
+                    <div class="card-footer bg-white text-end"><button onclick="saveWeights()" class="btn btn-success btn-sm fw-bold">Save Weights</button></div>
                 </div>
             </div>
 
             <div class="tab-pane fade" id="gi-pane" role="tabpanel">
-                <div class="card border-0 shadow-sm"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light text-center"><tr><th class="text-start ps-4">แพทย์ (GI Only)</th><th class="text-danger">UGIB</th><th>Other GIB</th><th>Non GIB</th><th class="fw-bold text-danger">GI Score</th></tr></thead><tbody id="tbody-gi"></tbody></table></div></div></div>
+                <div class="card border-0 shadow-sm"><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light text-center"><tr><th class="text-start ps-4">แพทย์ (GI)</th><th class="text-danger">UGIB</th><th>Other</th><th>Non</th><th class="fw-bold text-danger">GI Score</th></tr></thead><tbody id="tbody-gi"></tbody></table></div></div></div>
             </div>
 
             <div class="tab-pane fade" id="act-pane" role="tabpanel">
@@ -131,16 +109,57 @@
 
             <div class="tab-pane fade" id="trend-pane" role="tabpanel">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
-                        <span><i class="bi bi-graph-up-arrow"></i> Competitive Graph (ย้อนหลัง 12 เดือน)</span>
-                        <button onclick="loadCompetitiveGraph()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    <div class="card-header bg-white fw-bold d-flex justify-content-between">
+                        <span><i class="bi bi-graph-up-arrow"></i> Competitive Graph (Rolling 12 Months)</span>
+                        <button onclick="loadCompetitiveGraph()" class="btn btn-sm btn-outline-secondary">Refresh</button>
                     </div>
-                    <div class="card-body">
-                        <div style="height: 400px;">
-                            <canvas id="compChart"></canvas>
+                    <div class="card-body"><div style="height: 400px;"><canvas id="compChart"></canvas></div></div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="user-pane" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="card shadow-sm border-0 mb-3">
+                            <div class="card-header bg-white fw-bold text-success"><i class="bi bi-person-plus"></i> เพิ่มแพทย์ใหม่</div>
+                            <div class="card-body">
+                                <form id="form-add-user">
+                                    <div class="mb-2">
+                                        <label class="small text-muted">User UID (จากหน้า Access Denied)</label>
+                                        <input type="text" id="new-uid" class="form-control form-control-sm" placeholder="Ex. U1234..." required>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="small text-muted">ชื่อ-สกุล (ภาษาไทย)</label>
+                                        <input type="text" id="new-name" class="form-control form-control-sm" placeholder="นพ. ..." required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="small text-muted">แผนก (คั่นด้วยจุลภาคถ้ามีหลายอัน)</label>
+                                        <input type="text" id="new-spec" class="form-control form-control-sm" placeholder="Ex. GI, IM" required>
+                                    </div>
+                                    <button type="submit" class="btn btn-success btn-sm w-100 fw-bold">บันทึกข้อมูล</button>
+                                </form>
+                            </div>
                         </div>
-                        <div class="text-center mt-3 text-muted small">
-                            * กราฟแสดงผลข้อมูลจริงย้อนหลัง 1 ปี (Rolling 12 Months) โดยไม่ขึ้นกับตัวเลือกวันที่ด้านบน
+                    </div>
+
+                    <div class="col-md-8">
+                        <div class="card shadow-sm border-0">
+                            <div class="card-header bg-white fw-bold">รายชื่อแพทย์ในระบบ</div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height: 500px;">
+                                    <table class="table table-hover align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="ps-3">ชื่อ</th>
+                                                <th>แผนก</th>
+                                                <th>UID (ย่อ)</th>
+                                                <th class="text-end pe-3">จัดการ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="tbody-users"></tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -173,22 +192,16 @@
             } catch(e) { alert("LIFF Error: " + e); }
         }
 
-        // ================= FILTER LOGIC =================
         function renderFilterInputs() {
             const mode = document.getElementById('filter-mode').value;
             const container = document.getElementById('filter-inputs');
             const curY = new Date().getFullYear();
             let html = '';
             
-            if(mode === 'fiscal_year') {
-                html = `<select id="inp-year" class="form-select form-select-sm w-100"><option value="${curY+1}">ปีงบ ${curY+1}</option><option value="${curY}" selected>ปีงบ ${curY}</option><option value="${curY-1}">ปีงบ ${curY-1}</option></select>`;
-            } else if (mode === 'quarter') {
-                html = `<div class="d-flex gap-2"><select id="inp-year" class="form-select form-select-sm"><option value="${curY}">${curY}</option><option value="${curY-1}">${curY-1}</option></select><select id="inp-q" class="form-select form-select-sm"><option value="1">Q1 (ต.ค.-ธ.ค.)</option><option value="2">Q2 (ม.ค.-มี.ค.)</option><option value="3">Q3 (เม.ย.-มิ.ย.)</option><option value="4" selected>Q4 (ก.ค.-ก.ย.)</option></select></div>`;
-            } else if (mode === 'month') {
-                html = `<div class="d-flex gap-2"><select id="inp-year" class="form-select form-select-sm"><option value="${curY}" selected>${curY}</option></select><select id="inp-month" class="form-select form-select-sm"><option value="1">ม.ค.</option><option value="2">ก.พ.</option><option value="3">มี.ค.</option><option value="4">เม.ย.</option><option value="5">พ.ค.</option><option value="6">มิ.ย.</option><option value="7">ก.ค.</option><option value="8">ส.ค.</option><option value="9">ก.ย.</option><option value="10">ต.ค.</option><option value="11">พ.ย.</option><option value="12">ธ.ค.</option></select></div>`;
-            } else {
-                html = `<div class="d-flex gap-2"><input type="date" id="inp-start" class="form-control form-control-sm"><input type="date" id="inp-end" class="form-control form-control-sm"></div>`;
-            }
+            if(mode === 'fiscal_year') { html = `<select id="inp-year" class="form-select form-select-sm w-100"><option value="${curY+1}">ปีงบ ${curY+1}</option><option value="${curY}" selected>ปีงบ ${curY}</option><option value="${curY-1}">ปีงบ ${curY-1}</option></select>`; }
+            else if (mode === 'quarter') { html = `<div class="d-flex gap-2"><select id="inp-year" class="form-select form-select-sm"><option value="${curY}">${curY}</option><option value="${curY-1}">${curY-1}</option></select><select id="inp-q" class="form-select form-select-sm"><option value="1">Q1</option><option value="2">Q2</option><option value="3">Q3</option><option value="4" selected>Q4</option></select></div>`; }
+            else if (mode === 'month') { html = `<div class="d-flex gap-2"><select id="inp-year" class="form-select form-select-sm"><option value="${curY}" selected>${curY}</option></select><select id="inp-month" class="form-select form-select-sm"><option value="1">ม.ค.</option><option value="2">ก.พ.</option><option value="3">มี.ค.</option><option value="4">เม.ย.</option><option value="5">พ.ค.</option><option value="6">มิ.ย.</option><option value="7">ก.ค.</option><option value="8">ส.ค.</option><option value="9">ก.ย.</option><option value="10">ต.ค.</option><option value="11">พ.ย.</option><option value="12">ธ.ค.</option></select></div>`; }
+            else { html = `<div class="d-flex gap-2"><input type="date" id="inp-start" class="form-control form-control-sm"><input type="date" id="inp-end" class="form-control form-control-sm"></div>`; }
             container.innerHTML = html;
         }
 
@@ -218,13 +231,19 @@
             return { s: start + "T00:00:00", e: end + "T23:59:59" };
         }
 
-        // ================= DATA LOADING =================
         async function loadConfigAndStats() {
             const resConf = await fetch(`${API_URL}?action=loadAdminApp&uid=${currentAdminUID}`);
             const dataConf = await resConf.json();
             if(dataConf.error) { alert("Access Denied"); return; }
             doctorsData = dataConf.doctors || [];
             
+            // 🔥 Sort Doctors: Specialty first, then Name
+            doctorsData.sort((a, b) => {
+                const specA = (a.specialties && a.specialties.length > 0) ? a.specialties[0].toString() : 'zzz';
+                const specB = (b.specialties && b.specialties.length > 0) ? b.specialties[0].toString() : 'zzz';
+                return specA.localeCompare(specB) || a.name.localeCompare(b.name);
+            });
+
             // Setup Filters
             const deptSet = new Set();
             const docSel = document.getElementById('act-filter-doc');
@@ -235,9 +254,10 @@
                 if(d.specialties) d.specialties.forEach(s => deptSet.add(s));
                 docSel.innerHTML += `<option value="${d.name}">${d.name}</option>`;
             });
-            deptSet.forEach(s => document.getElementById('filter-dept').innerHTML += `<option value="${s}">${s}</option>`);
+            Array.from(deptSet).sort().forEach(s => document.getElementById('filter-dept').innerHTML += `<option value="${s}">${s}</option>`);
 
             loadStats();
+            renderUserTable(); 
         }
 
         async function loadStats() {
@@ -252,10 +272,8 @@
 
             renderGeneralTabs(); 
             renderActivityTab();
-            // Note: กราฟแยกไปโหลดเมื่อกด Tab 4 หรือจะโหลดเลยก็ได้ แต่แยกดีกว่า
         }
 
-        // ================= TAB 1 & 2: TABLES =================
         function renderGeneralTabs() {
             const tbodyGen = document.getElementById('tbody-gen');
             const tbodyGI = document.getElementById('tbody-gi');
@@ -266,67 +284,29 @@
                 const scoreGen = (s.c_first * doc.w_first) + (s.c_follow * doc.w_follow);
                 const scoreGI = (s.c_ugib * doc.w_ugib) + (s.c_other * doc.w_other) + (s.c_non * doc.w_non);
                 const specDisplay = doc.specialties ? doc.specialties.join(", ") : "-";
-                // ใช้ data-dept เพื่อทำ Filter ฝั่ง Frontend
                 const deptAttr = doc.specialties ? doc.specialties.join(",") : "";
 
-                // Tab 1 Row
-                tbodyGen.innerHTML += `
-                    <tr data-dept="${deptAttr}">
-                        <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
-                        <td><span class="badge bg-light text-dark border">${specDisplay}</span></td>
-                        <td class="text-center">${s.c_first}</td>
-                        <td class="text-center">${s.c_follow}</td>
-                        <td class="text-center"><input type="number" step="0.1" class="input-weight" value="${doc.w_first}" onchange="updW(${idx}, 'w_first', this.value)"></td>
-                        <td class="text-center"><input type="number" step="0.1" class="input-weight" value="${doc.w_follow}" onchange="updW(${idx}, 'w_follow', this.value)"></td>
-                        <td class="text-center fw-bold text-primary">${scoreGen.toFixed(1)}</td>
-                    </tr>
-                `;
+                tbodyGen.innerHTML += `<tr data-dept="${deptAttr}"><td class="text-start ps-4 fw-bold text-dark">${doc.name}</td><td><span class="badge bg-light text-dark border">${specDisplay}</span></td><td class="text-center">${s.c_first}</td><td class="text-center">${s.c_follow}</td><td class="text-center"><input type="number" step="0.1" class="input-weight" value="${doc.w_first}" onchange="updW(${idx}, 'w_first', this.value)"></td><td class="text-center"><input type="number" step="0.1" class="input-weight" value="${doc.w_follow}" onchange="updW(${idx}, 'w_follow', this.value)"></td><td class="text-center fw-bold text-primary">${scoreGen.toFixed(1)}</td></tr>`;
 
-                // Tab 2 Row (GI)
                 const isGI = (doc.specialties||[]).some(s => s.toLowerCase().includes('gi') || s.toLowerCase().includes('gastro')) || s.c_ugib > 0;
-                if(isGI) {
-                    tbodyGI.innerHTML += `
-                        <tr>
-                            <td class="text-start ps-4 fw-bold text-dark">${doc.name}</td>
-                            <td class="text-center text-danger bg-light">${s.c_ugib}</td>
-                            <td class="text-center">${s.c_other}</td>
-                            <td class="text-center">${s.c_non}</td>
-                            <td class="text-center fw-bold text-danger">${scoreGI.toFixed(1)}</td>
-                        </tr>
-                    `;
-                }
+                if(isGI) tbodyGI.innerHTML += `<tr><td class="text-start ps-4 fw-bold text-dark">${doc.name}</td><td class="text-center text-danger bg-light">${s.c_ugib}</td><td class="text-center">${s.c_other}</td><td class="text-center">${s.c_non}</td><td class="text-center fw-bold text-danger">${scoreGI.toFixed(1)}</td></tr>`;
             });
-            applyDepartmentFilter(); // Apply filter ทันทีหลัง Render
+            applyDepartmentFilter();
         }
 
-        // 🔥 Fix: Department Filter Function
         function applyDepartmentFilter() {
             const selectedDept = document.getElementById('filter-dept').value;
-            const rows = document.querySelectorAll('#tbody-gen tr');
-            
-            rows.forEach(row => {
+            document.querySelectorAll('#tbody-gen tr').forEach(row => {
                 const depts = row.getAttribute('data-dept');
-                if (selectedDept === 'All') {
-                    row.classList.remove('hidden-row');
-                } else {
-                    if (depts.includes(selectedDept)) {
-                        row.classList.remove('hidden-row');
-                    } else {
-                        row.classList.add('hidden-row');
-                    }
-                }
+                if (selectedDept === 'All' || depts.includes(selectedDept)) row.classList.remove('hidden-row');
+                else row.classList.add('hidden-row');
             });
         }
 
-        // ================= TAB 3: ACTIVITY =================
         function renderActivityTab() {
             const viewMode = document.querySelector('input[name="actView"]:checked').value;
             const fDoc = document.getElementById('act-filter-doc').value;
-            
-            let filteredAct = currentActivities.filter(act => {
-                if (fDoc !== 'All' && act.doctor !== fDoc) return false;
-                return true;
-            });
+            let filteredAct = currentActivities.filter(act => fDoc === 'All' || act.doctor === fDoc);
 
             document.getElementById('act-total-badge').innerText = `${filteredAct.length} รายการ`;
             const tblSummary = document.getElementById('tbl-act-summary');
@@ -345,7 +325,7 @@
                 Object.values(grouped).sort((a,b)=>b.count - a.count).forEach(g => {
                     const docInfo = doctorsData.find(d => d.name === g.name);
                     const specs = docInfo ? (docInfo.specialties || []).join(", ") : "-";
-                    tbodySum.innerHTML += `<tr><td class="ps-4 fw-bold text-primary">${g.name}</td><td><span class="badge bg-light text-dark border">${specs}</span></td><td class="text-center fw-bold fs-5">${g.count}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-secondary" onclick="viewDoctorDetail('${g.name}')"><i class="bi bi-eye"></i> รายละเอียด</button></td></tr>`;
+                    tbodySum.innerHTML += `<tr><td class="ps-4 fw-bold text-primary">${g.name}</td><td><span class="badge bg-light text-dark border">${specs}</span></td><td class="text-center fw-bold fs-5">${g.count}</td><td class="text-end pe-4"><button class="btn btn-sm btn-outline-secondary" onclick="viewDoctorDetail('${g.name}')">รายละเอียด</button></td></tr>`;
                 });
             } else {
                 tblSummary.classList.add('d-none'); tblDetail.classList.remove('d-none');
@@ -356,21 +336,14 @@
             }
         }
 
-        // ================= TAB 4: COMPETITIVE GRAPH (Rolling 1 Year) =================
         async function loadCompetitiveGraph() {
-            // คำนวณวันย้อนหลัง 1 ปี (Rolling)
             const today = new Date();
-            const lastYear = new Date();
-            lastYear.setFullYear(today.getFullYear() - 1);
-            
+            const lastYear = new Date(); lastYear.setFullYear(today.getFullYear() - 1);
             const s = lastYear.toISOString().split('T')[0] + "T00:00:00";
             const e = today.toISOString().split('T')[0] + "T23:59:59";
-
             const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${s}&end=${e}`);
             const result = await res.json();
-            const graphData = result.graph || {};
-
-            renderGraph(graphData);
+            renderGraph(result.graph || {});
         }
 
         function renderGraph(data) {
@@ -379,41 +352,49 @@
             const specialties = new Set();
             Object.values(data).forEach(m => Object.keys(m).forEach(s => specialties.add(s)));
             const specsArray = Array.from(specialties);
-
             const datasets = specsArray.map((spec, i) => {
                 const vals = labels.map(lbl => data[lbl][spec] || 0);
                 const color = `hsl(${(i * 360) / specsArray.length}, 70%, 50%)`;
                 return { label: spec, data: vals, borderColor: color, backgroundColor: color, tension: 0.3, fill: false };
             });
-
             if(compChart) compChart.destroy();
-            compChart = new Chart(ctx, {
-                type: 'line',
-                data: { labels: labels, datasets: datasets },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        tooltip: {
-                            // 🔥 เรียง Tooltip ตามคะแนน (มาก -> น้อย)
-                            itemSort: function(a, b) { return b.parsed.y - a.parsed.y; }
-                        }
-                    }
-                }
+            compChart = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { itemSort: function(a, b) { return b.parsed.y - a.parsed.y; } } } } });
+        }
+
+        function renderUserTable() {
+            const tbody = document.getElementById('tbody-users');
+            tbody.innerHTML = "";
+            doctorsData.forEach(d => {
+                const specs = d.specialties ? d.specialties.join(", ") : "-";
+                tbody.innerHTML += `<tr><td class="ps-3 fw-bold">${d.name}</td><td><span class="badge bg-light text-dark border">${specs}</span></td><td class="text-muted small font-monospace">${d.uid.substring(0,5)}...</td><td class="text-end pe-3"><button class="btn btn-sm btn-outline-danger" onclick="deleteUser('${d.uid}', '${d.name}')"><i class="bi bi-trash"></i></button></td></tr>`;
             });
         }
 
-        // --- UTILS ---
-        window.viewDoctorDetail = function(docName) {
-            document.getElementById('act-filter-doc').value = docName;
-            document.getElementById('view-detail').click();
+        document.getElementById('form-add-user').onsubmit = async function(e) {
+            e.preventDefault();
+            const uid = document.getElementById('new-uid').value.trim();
+            const name = document.getElementById('new-name').value.trim();
+            const specStr = document.getElementById('new-spec').value.trim();
+            const specialties = specStr.split(',').map(s => s.trim()).filter(s => s); 
+            if(!uid || !name || specialties.length === 0) { alert("กรุณากรอกข้อมูลให้ครบ"); return; }
+            const btn = this.querySelector('button'); btn.innerText="Saving..."; btn.disabled=true;
+            try {
+                await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'manageUser', uid: currentAdminUID, sub_task: 'add', payload: { uid, name, specialties } }) });
+                alert("✅ เพิ่มแพทย์เรียบร้อย!");
+                this.reset(); loadConfigAndStats();
+            } catch(e) { alert("Error: "+e); } finally { btn.innerText="บันทึกข้อมูล"; btn.disabled=false; }
         }
+
+        async function deleteUser(targetUID, name) {
+            if(!confirm(`ต้องการลบ "${name}" ออกจากระบบ?`)) return;
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'manageUser', uid: currentAdminUID, sub_task: 'delete', payload: { uid: targetUID } }) });
+            alert("🗑️ ลบเรียบร้อย"); loadConfigAndStats();
+        }
+
+        window.viewDoctorDetail = function(docName) { document.getElementById('act-filter-doc').value = docName; document.getElementById('view-detail').click(); }
         function updW(idx, field, val) { doctorsData[idx][field] = parseFloat(val); }
         async function saveWeights() {
-            const payload = doctorsData.map(d => ({
-                docUID: d.uid, w_first: d.w_first, w_follow: d.w_follow, w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non
-            }));
+            const payload = doctorsData.map(d => ({ docUID: d.uid, w_first: d.w_first, w_follow: d.w_follow, w_ugib: d.w_ugib, w_other: d.w_other, w_non: d.w_non }));
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateWeights', uid: currentAdminUID, payload: payload }) });
             alert("✅ บันทึกสำเร็จ"); loadStats();
         }
