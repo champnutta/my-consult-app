@@ -104,6 +104,9 @@
                             <table id="tbl-act-detail" class="table table-hover align-middle mb-0 d-none"><thead class="table-light"><tr><th class="ps-4">วันที่</th><th>กิจกรรม</th><th>แพทย์</th><th>บทบาท</th></tr></thead><tbody id="tbody-act-detail"></tbody></table>
                         </div>
                     </div>
+                    <div class="card-footer bg-white text-muted small text-end">
+                        * ระบบกรองข้อมูลซ้ำให้แล้ว (นับ 1 ครั้ง/กิจกรรม/วัน)
+                    </div>
                 </div>
             </div>
 
@@ -125,15 +128,15 @@
                             <div class="card-body">
                                 <form id="form-add-user">
                                     <div class="mb-2">
-                                        <label class="small text-muted">User UID (จากหน้า Access Denied)</label>
-                                        <input type="text" id="new-uid" class="form-control form-control-sm" placeholder="Ex. U1234..." required>
+                                        <label class="small text-muted">User UID</label>
+                                        <input type="text" id="new-uid" class="form-control form-control-sm" required>
                                     </div>
                                     <div class="mb-2">
-                                        <label class="small text-muted">ชื่อ-สกุล (ภาษาไทย)</label>
-                                        <input type="text" id="new-name" class="form-control form-control-sm" placeholder="นพ. ..." required>
+                                        <label class="small text-muted">ชื่อ-สกุล</label>
+                                        <input type="text" id="new-name" class="form-control form-control-sm" required>
                                     </div>
                                     <div class="mb-3">
-                                        <label class="small text-muted">แผนก (คั่นด้วยจุลภาคถ้ามีหลายอัน)</label>
+                                        <label class="small text-muted">แผนก</label>
                                         <input type="text" id="new-spec" class="form-control form-control-sm" placeholder="Ex. GI, IM" required>
                                     </div>
                                     <button type="submit" class="btn btn-success btn-sm w-100 fw-bold">บันทึกข้อมูล</button>
@@ -237,14 +240,14 @@
             if(dataConf.error) { alert("Access Denied"); return; }
             doctorsData = dataConf.doctors || [];
             
-            // 🔥 Sort Doctors: Specialty first, then Name
+            // Sort Doctors
             doctorsData.sort((a, b) => {
                 const specA = (a.specialties && a.specialties.length > 0) ? a.specialties[0].toString() : 'zzz';
                 const specB = (b.specialties && b.specialties.length > 0) ? b.specialties[0].toString() : 'zzz';
                 return specA.localeCompare(specB) || a.name.localeCompare(b.name);
             });
 
-            // Setup Filters
+            // Filters
             const deptSet = new Set();
             const docSel = document.getElementById('act-filter-doc');
             docSel.innerHTML = '<option value="All">แพทย์ทุกคน</option>';
@@ -303,12 +306,29 @@
             });
         }
 
+        // 🔥 MODIFIED: Activity Tab with Deduplication
         function renderActivityTab() {
             const viewMode = document.querySelector('input[name="actView"]:checked').value;
             const fDoc = document.getElementById('act-filter-doc').value;
-            let filteredAct = currentActivities.filter(act => fDoc === 'All' || act.doctor === fDoc);
+            
+            // 1. First Filter by Doctor
+            let rawFiltered = currentActivities.filter(act => fDoc === 'All' || act.doctor === fDoc);
 
-            document.getElementById('act-total-badge').innerText = `${filteredAct.length} รายการ`;
+            // 2. Deduplication Logic (Same Doctor + Same Activity + Same Date)
+            const uniqueKeys = new Set();
+            const uniqueActivities = [];
+
+            rawFiltered.forEach(act => {
+                const dateKey = act.date.split('T')[0]; // YYYY-MM-DD
+                const key = `${act.doctor}|${act.activity}|${dateKey}`;
+                if(!uniqueKeys.has(key)) {
+                    uniqueKeys.add(key);
+                    uniqueActivities.push(act);
+                }
+            });
+
+            // Use 'uniqueActivities' for display
+            document.getElementById('act-total-badge').innerText = `${uniqueActivities.length} รายการ`;
             const tblSummary = document.getElementById('tbl-act-summary');
             const tblDetail = document.getElementById('tbl-act-detail');
             const tbodySum = document.getElementById('tbody-act-summary');
@@ -318,7 +338,7 @@
             if (viewMode === 'summary') {
                 tblSummary.classList.remove('d-none'); tblDetail.classList.add('d-none');
                 const grouped = {};
-                filteredAct.forEach(act => {
+                uniqueActivities.forEach(act => {
                     if(!grouped[act.doctor]) grouped[act.doctor] = { count: 0, name: act.doctor };
                     grouped[act.doctor].count++;
                 });
@@ -329,8 +349,8 @@
                 });
             } else {
                 tblSummary.classList.add('d-none'); tblDetail.classList.remove('d-none');
-                filteredAct.sort((a,b) => new Date(b.date) - new Date(a.date));
-                filteredAct.forEach(act => {
+                uniqueActivities.sort((a,b) => new Date(b.date) - new Date(a.date));
+                uniqueActivities.forEach(act => {
                     tbodyDet.innerHTML += `<tr><td class="ps-4 text-muted">${act.date.split('T')[0]}</td><td class="fw-bold">${act.activity}</td><td>${act.doctor}</td><td><span class="badge bg-secondary">${act.role}</span></td></tr>`;
                 });
             }
