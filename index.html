@@ -313,6 +313,7 @@
     if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
     window.onload = async function() {
+      // Init Activity Dropdown
       const actSel = document.getElementById('act-name');
       ACTIVITY_LIST.forEach(act => {
           actSel.innerHTML += `<option value="${act}">${act}</option>`;
@@ -650,7 +651,7 @@
         .catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
     }
 
-    // --- STANDARD FUNCTIONS (SCAN, SEARCH) ---
+    // --- STANDARD FUNCTIONS ---
     window.processFile = function(input) {
         const f = input.files[0]; if(!f) return;
         document.getElementById('btn-scan').classList.remove('hidden');
@@ -705,6 +706,7 @@
         const hn = document.getElementById('p-hn').value;
         if(!hn) { alert("ระบุ HN"); return; }
         
+        // 🔥 FIX: Add 'date' field to payload
         const payload = {
             doctorName: currentDoctor.name,
             specialty: document.querySelector('input[name="specialty"]:checked').value,
@@ -713,7 +715,8 @@
             visitType: document.querySelector('input[name="visitType"]:checked').value,
             diagnosis: document.getElementById('div-gi-diag').classList.contains('hidden') ? "" : document.getElementById('gi-diagnosis').value,
             ward: document.getElementById('p-ward').value,
-            note: document.getElementById('p-note').value
+            note: document.getElementById('p-note').value,
+            date: document.getElementById('visit-date').value // 🔥 Added
         };
         fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'save', payload:payload})}).then(r=>r.json()).then(()=>{ alert("Saved!"); location.reload(); });
     }
