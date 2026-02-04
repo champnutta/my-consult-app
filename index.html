@@ -196,12 +196,16 @@
                 </div>
 
                 <div class="card mb-3 border-0 shadow-sm bg-white">
-                    <div class="card-header bg-white fw-bold text-danger">
-                        <i class="bi bi-trophy"></i> ภาพรวมภาควิชา (Competitive)
+                    <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                        <span class="text-danger"><i class="bi bi-trophy"></i> Competitive</span>
+                        <select id="user-graph-metric" class="form-select form-select-sm border-0 bg-light text-primary fw-bold cursor-pointer" style="width:auto;" onchange="renderCompetitiveGraph()">
+                            <option value="count">จำนวนคน (Count)</option>
+                            <option value="total_score">PA Score รวม</option>
+                            <option value="avg_score">PA Score เฉลี่ย</option>
+                        </select>
                     </div>
                     <div class="card-body">
                          <canvas id="compChart" style="max-height: 250px;"></canvas>
-                         <div class="text-center mt-2 small text-muted">เปรียบเทียบจำนวนเคสแต่ละแผนก (รายเดือน)</div>
                     </div>
                 </div>
             </div>
@@ -291,8 +295,9 @@
     let barChart = null;
     let compChart = null;
     let myPatientsRaw = []; 
-    let dashData = { personal: [], competitive: {} };
-    let wardModal = null; // Store modal instance
+    // 🔥 Updated Data Structure for Backend v4.0
+    let dashData = { personal: [], competitive_count: {}, competitive_score: {} };
+    let wardModal = null; 
 
     if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
@@ -427,7 +432,7 @@
         });
     }
 
-    // 🔥 FIX: เพิ่ม doctorName เพื่อรองรับ Personalized Status
+    // 🔥 MODIFIED: Send 'doctorName' to Personalized Status
     window.toggleStatus = function(hn, status) {
         const newStatus = status === 'Active' ? 'Offservice' : 'Active';
         if(!confirm(`เปลี่ยนสถานะเป็น ${newStatus}?`)) return;
@@ -436,10 +441,9 @@
             method: 'POST', 
             body: JSON.stringify({
                 action:'updateStatus', 
-                payload:{ hn: hn, status: newStatus, doctorName: currentDoctor.name } // Added doctorName
+                payload:{ hn: hn, status: newStatus, doctorName: currentDoctor.name } // 🔥 Add name
             }) 
         });
-        
         // Update Local
         const p = myPatientsRaw.find(x=>x.hn==hn); if(p) p.status = newStatus; 
         renderPatientList();
@@ -463,7 +467,7 @@
         wardModal.show();
     }
 
-    // 🔥 FIX: เพิ่ม doctorName เพื่อรองรับ Personalized Status
+    // 🔥 MODIFIED: Send 'doctorName' here too
     window.saveWardChange = function() {
         const hn = document.getElementById('edit-hn').value;
         const newWard = document.getElementById('edit-ward-input').value || '-';
@@ -480,8 +484,8 @@
             body: JSON.stringify({ 
                 action: 'updateStatus', 
                 payload: { 
-                    hn: hn, status: p.status, ward: newWard, note: newNote, 
-                    doctorName: currentDoctor.name // Added doctorName
+                    hn: hn, status: p.status, ward: newWard, note: newNote,
+                    doctorName: currentDoctor.name // 🔥 Add name
                 } 
             })
         });
@@ -493,7 +497,7 @@
         document.getElementById('p-ward').value=w; document.getElementById('p-note').value=note;
     }
 
-    // --- DASHBOARD & GRAPH ---
+    // --- DASHBOARD & GRAPH (UPDATED) ---
     function loadDashboard() { 
         fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`)
         .then(r => r.json())
@@ -504,7 +508,7 @@
     }
 
     function renderCharts() {
-        // 1. Personal Bar Chart
+        // 1. Personal Bar Chart (Same as before)
         const personalLogs = dashData.personal || [];
         document.getElementById('chart-total').innerText = personalLogs.length;
         
@@ -532,31 +536,43 @@
             options: { responsive: true, scales: { x:{stacked:true}, y:{stacked:true} } }
         });
 
-        // 2. Competitive Line Chart (with Item Sort)
-        const compData = dashData.competitive || {};
-        const ctx2 = document.getElementById('compChart');
-        const labels = Object.keys(compData).sort(); 
+        // 2. 🔥 Competitive Line Chart (New Logic with Dropdown)
+        renderCompetitiveGraph();
+    }
+
+    function renderCompetitiveGraph() {
+        const metric = document.getElementById('user-graph-metric').value; // count, total_score, avg_score
+        const gCount = dashData.competitive_count || {};
+        const gScore = dashData.competitive_score || {};
+        
+        const labels = Object.keys(gCount).sort(); 
         const specs = new Set();
-        Object.values(compData).forEach(m => Object.keys(m).forEach(s => specs.add(s)));
+        Object.values(gCount).forEach(m => Object.keys(m).forEach(s => specs.add(s)));
         const specsArr = Array.from(specs);
 
         const datasets = specsArr.map((spec, i) => {
-            const data = labels.map(lbl => compData[lbl][spec] || 0);
+            const vals = labels.map(lbl => {
+                const c = gCount[lbl][spec] || 0;
+                const s = gScore[lbl][spec] || 0;
+                if(metric === 'count') return c;
+                if(metric === 'total_score') return s;
+                if(metric === 'avg_score') return c > 0 ? (s/c) : 0;
+                return 0;
+            });
             const color = `hsl(${(i * 360) / specsArr.length}, 70%, 50%)`;
-            return { label: spec, data: data, borderColor: color, backgroundColor: color, tension: 0.3, fill: false };
+            return { label: spec, data: vals, borderColor: color, backgroundColor: color, tension: 0.3, fill: false };
         });
 
         if(compChart) compChart.destroy();
-        compChart = new Chart(ctx2, {
+        compChart = new Chart(document.getElementById('compChart'), {
             type: 'line',
             data: { labels: labels, datasets: datasets },
             options: { 
                 responsive: true, 
                 interaction: { mode: 'index', intersect: false },
-                // 🔥 Ensure Tooltip Sort Logic is Present
                 plugins: {
                     tooltip: {
-                        itemSort: function(a, b) { return b.parsed.y - a.parsed.y; }
+                        itemSort: function(a, b) { return b.parsed.y - a.parsed.y; } // Sort High to Low
                     }
                 }
             }
@@ -593,7 +609,7 @@
         .catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
     }
 
-    // --- STANDARD FUNCTIONS ---
+    // --- STANDARD FUNCTIONS (SCAN, SEARCH) ---
     window.processFile = function(input) {
         const f = input.files[0]; if(!f) return;
         document.getElementById('btn-scan').classList.remove('hidden');
