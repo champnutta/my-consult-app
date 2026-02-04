@@ -210,10 +210,13 @@
                             <option value="count">จำนวนคน (Count)</option>
                             <option value="total_score">PA Score รวม</option>
                             <option value="avg_score">PA Score เฉลี่ย</option>
+                            <option value="workload_per_doc">Workload/Doc (ภาระงาน/คน)</option>
                         </select>
                     </div>
                     <div class="card-body">
-                         <canvas id="compChart" style="max-height: 250px;"></canvas>
+                         <div style="height: 400px;">
+                            <canvas id="compChart"></canvas>
+                         </div>
                     </div>
                 </div>
             </div>
@@ -305,11 +308,11 @@
     let myPatientsRaw = []; 
     let dashData = { personal: [], competitive_count: {}, competitive_score: {} };
     let wardModal = null; 
+    let deptHeadcounts = {}; 
 
     if(typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
 
     window.onload = async function() {
-      // Init Activity Dropdown
       const actSel = document.getElementById('act-name');
       ACTIVITY_LIST.forEach(act => {
           actSel.innerHTML += `<option value="${act}">${act}</option>`;
@@ -332,7 +335,18 @@
                 currentDoctor = res.doctor;
                 currentDoctor.uid = uid; 
                 existingPatients = res.patients;
-                allDoctors = res.doctors;
+                allDoctors = res.doctors || []; 
+                
+                deptHeadcounts = {};
+                allDoctors.forEach(d => {
+                    if (d.specialties) {
+                        d.specialties.forEach(s => {
+                            if (!deptHeadcounts[s]) deptHeadcounts[s] = 0;
+                            deptHeadcounts[s]++;
+                        });
+                    }
+                });
+
                 startApp();
             } else {
                 document.getElementById('loading').classList.add('hidden');
@@ -514,7 +528,7 @@
     }
 
     function renderCharts() {
-        // 1. Personal Stats (Score Calculation)
+        // 1. Personal Stats
         const personalLogs = dashData.personal || [];
         
         // Calculate Total Score
@@ -522,7 +536,6 @@
         const wNew = parseFloat(currentDoctor.w_first || 2.0);
         const wFu = parseFloat(currentDoctor.w_follow || 1.0);
 
-        // Separate Data for Bar Chart
         let firstData = Array(12).fill(0), fuData = Array(12).fill(0);
 
         personalLogs.forEach(l => {
@@ -541,11 +554,9 @@
             }
         });
 
-        // Update UI Text
         document.getElementById('chart-total').innerText = personalLogs.length;
-        document.getElementById('chart-score').innerText = totalScore.toFixed(1); // Score
+        document.getElementById('chart-score').innerText = totalScore.toFixed(1);
 
-        // Render Bar Chart
         const ctx1 = document.getElementById('barChart');
         if(barChart) barChart.destroy();
         barChart = new Chart(ctx1, {
@@ -564,8 +575,9 @@
         renderCompetitiveGraph();
     }
 
+    // 🔥 UPDATED: Competitive Graph with Workload Logic & Height Fix
     function renderCompetitiveGraph() {
-        const metric = document.getElementById('user-graph-metric').value; // count, total_score, avg_score
+        const metric = document.getElementById('user-graph-metric').value; 
         const gCount = dashData.competitive_count || {};
         const gScore = dashData.competitive_score || {};
         
@@ -581,6 +593,10 @@
                 if(metric === 'count') return c;
                 if(metric === 'total_score') return s;
                 if(metric === 'avg_score') return c > 0 ? (s/c) : 0;
+                if(metric === 'workload_per_doc') {
+                    const nDocs = deptHeadcounts[spec] || 1;
+                    return (s / nDocs);
+                }
                 return 0;
             });
             const color = `hsl(${(i * 360) / specsArr.length}, 70%, 50%)`;
@@ -593,10 +609,11 @@
             data: { labels: labels, datasets: datasets },
             options: { 
                 responsive: true, 
+                maintainAspectRatio: false, // 🔥 Fix Aspect Ratio
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
                     tooltip: {
-                        itemSort: function(a, b) { return b.parsed.y - a.parsed.y; } // Sort High to Low
+                        itemSort: function(a, b) { return b.parsed.y - a.parsed.y; }
                     }
                 }
             }
