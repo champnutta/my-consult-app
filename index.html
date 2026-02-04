@@ -189,8 +189,16 @@
                 <div class="card mb-3 border-0 shadow-sm bg-white">
                     <div class="card-header bg-white fw-bold">สถิติของฉัน (Personal)</div>
                     <div class="card-body">
-                         <h1 class="display-4 fw-bold text-primary mb-2 text-center" id="chart-total">0</h1>
-                         <p class="text-center text-muted small">เคสทั้งหมดในปีนี้</p>
+                         <div class="row text-center mb-3">
+                             <div class="col-6 border-end">
+                                 <h1 class="display-5 fw-bold text-primary m-0" id="chart-total">0</h1>
+                                 <small class="text-muted">Total Cases</small>
+                             </div>
+                             <div class="col-6">
+                                 <h1 class="display-5 fw-bold text-success m-0" id="chart-score">0</h1>
+                                 <small class="text-muted">Total Score</small>
+                             </div>
+                         </div>
                          <canvas id="barChart" style="max-height: 200px;"></canvas>
                     </div>
                 </div>
@@ -295,7 +303,6 @@
     let barChart = null;
     let compChart = null;
     let myPatientsRaw = []; 
-    // 🔥 Updated Data Structure for Backend v4.0
     let dashData = { personal: [], competitive_count: {}, competitive_score: {} };
     let wardModal = null; 
 
@@ -432,7 +439,7 @@
         });
     }
 
-    // 🔥 MODIFIED: Send 'doctorName' to Personalized Status
+    // Send 'doctorName' to Personalized Status
     window.toggleStatus = function(hn, status) {
         const newStatus = status === 'Active' ? 'Offservice' : 'Active';
         if(!confirm(`เปลี่ยนสถานะเป็น ${newStatus}?`)) return;
@@ -441,10 +448,10 @@
             method: 'POST', 
             body: JSON.stringify({
                 action:'updateStatus', 
-                payload:{ hn: hn, status: newStatus, doctorName: currentDoctor.name } // 🔥 Add name
+                payload:{ hn: hn, status: newStatus, doctorName: currentDoctor.name }
             }) 
         });
-        // Update Local
+        
         const p = myPatientsRaw.find(x=>x.hn==hn); if(p) p.status = newStatus; 
         renderPatientList();
     }
@@ -456,7 +463,6 @@
         document.getElementById('edit-ward-input').value = (currentWard === '-' || currentWard === 'null' ? '' : currentWard);
         document.getElementById('edit-note-input').value = (currentNote === 'undefined' || !currentNote) ? '' : currentNote;
         
-        // Quick Wards
         const quickBox = document.getElementById('quick-wards');
         quickBox.innerHTML = "";
         const existingWards = Array.from(document.getElementById('filter-ward').options).map(o=>o.value).filter(v=>v!=='All');
@@ -467,7 +473,7 @@
         wardModal.show();
     }
 
-    // 🔥 MODIFIED: Send 'doctorName' here too
+    // Send 'doctorName' here too
     window.saveWardChange = function() {
         const hn = document.getElementById('edit-hn').value;
         const newWard = document.getElementById('edit-ward-input').value || '-';
@@ -485,7 +491,7 @@
                 action: 'updateStatus', 
                 payload: { 
                     hn: hn, status: p.status, ward: newWard, note: newNote,
-                    doctorName: currentDoctor.name // 🔥 Add name
+                    doctorName: currentDoctor.name 
                 } 
             })
         });
@@ -497,7 +503,7 @@
         document.getElementById('p-ward').value=w; document.getElementById('p-note').value=note;
     }
 
-    // --- DASHBOARD & GRAPH (UPDATED) ---
+    // --- DASHBOARD & GRAPH ---
     function loadDashboard() { 
         fetch(`${WEB_APP_URL}?action=getDashboardData&uid=${currentDoctor.uid}`)
         .then(r => r.json())
@@ -508,20 +514,38 @@
     }
 
     function renderCharts() {
-        // 1. Personal Bar Chart (Same as before)
+        // 1. Personal Stats (Score Calculation)
         const personalLogs = dashData.personal || [];
-        document.getElementById('chart-total').innerText = personalLogs.length;
         
+        // Calculate Total Score
+        let totalScore = 0;
+        const wNew = parseFloat(currentDoctor.w_first || 2.0);
+        const wFu = parseFloat(currentDoctor.w_follow || 1.0);
+
+        // Separate Data for Bar Chart
         let firstData = Array(12).fill(0), fuData = Array(12).fill(0);
+
         personalLogs.forEach(l => {
             const d = new Date(l.date);
             if(!isNaN(d)) {
                 const m = d.getMonth();
                 const t = (l.type||"").toLowerCase();
-                if(t.includes('first')||t.includes('new')) firstData[m]++; else fuData[m]++;
+                
+                if(t.includes('first')||t.includes('new')) {
+                    firstData[m]++;
+                    totalScore += wNew;
+                } else {
+                    fuData[m]++;
+                    totalScore += wFu;
+                }
             }
         });
 
+        // Update UI Text
+        document.getElementById('chart-total').innerText = personalLogs.length;
+        document.getElementById('chart-score').innerText = totalScore.toFixed(1); // Score
+
+        // Render Bar Chart
         const ctx1 = document.getElementById('barChart');
         if(barChart) barChart.destroy();
         barChart = new Chart(ctx1, {
@@ -536,7 +560,7 @@
             options: { responsive: true, scales: { x:{stacked:true}, y:{stacked:true} } }
         });
 
-        // 2. 🔥 Competitive Line Chart (New Logic with Dropdown)
+        // 2. Competitive Line Chart
         renderCompetitiveGraph();
     }
 
@@ -609,7 +633,7 @@
         .catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
     }
 
-    // --- STANDARD FUNCTIONS ---
+    // --- STANDARD FUNCTIONS (SCAN, SEARCH) ---
     window.processFile = function(input) {
         const f = input.files[0]; if(!f) return;
         document.getElementById('btn-scan').classList.remove('hidden');
