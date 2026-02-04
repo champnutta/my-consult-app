@@ -427,11 +427,19 @@
         });
     }
 
+    // 🔥 FIX: เพิ่ม doctorName เพื่อรองรับ Personalized Status
     window.toggleStatus = function(hn, status) {
         const newStatus = status === 'Active' ? 'Offservice' : 'Active';
         if(!confirm(`เปลี่ยนสถานะเป็น ${newStatus}?`)) return;
         
-        fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({action:'updateStatus', payload:{hn, status: newStatus}}) });
+        fetch(WEB_APP_URL, { 
+            method: 'POST', 
+            body: JSON.stringify({
+                action:'updateStatus', 
+                payload:{ hn: hn, status: newStatus, doctorName: currentDoctor.name } // Added doctorName
+            }) 
+        });
+        
         // Update Local
         const p = myPatientsRaw.find(x=>x.hn==hn); if(p) p.status = newStatus; 
         renderPatientList();
@@ -455,6 +463,7 @@
         wardModal.show();
     }
 
+    // 🔥 FIX: เพิ่ม doctorName เพื่อรองรับ Personalized Status
     window.saveWardChange = function() {
         const hn = document.getElementById('edit-hn').value;
         const newWard = document.getElementById('edit-ward-input').value || '-';
@@ -468,7 +477,13 @@
 
         fetch(WEB_APP_URL, {
             method: 'POST',
-            body: JSON.stringify({ action: 'updateStatus', payload: { hn: hn, status: p.status, ward: newWard, note: newNote } })
+            body: JSON.stringify({ 
+                action: 'updateStatus', 
+                payload: { 
+                    hn: hn, status: p.status, ward: newWard, note: newNote, 
+                    doctorName: currentDoctor.name // Added doctorName
+                } 
+            })
         });
     }
 
@@ -517,7 +532,7 @@
             options: { responsive: true, scales: { x:{stacked:true}, y:{stacked:true} } }
         });
 
-        // 2. Competitive Line Chart
+        // 2. Competitive Line Chart (with Item Sort)
         const compData = dashData.competitive || {};
         const ctx2 = document.getElementById('compChart');
         const labels = Object.keys(compData).sort(); 
@@ -538,7 +553,7 @@
             options: { 
                 responsive: true, 
                 interaction: { mode: 'index', intersect: false },
-                // 🔥 Added Item Sort Logic Here
+                // 🔥 Ensure Tooltip Sort Logic is Present
                 plugins: {
                     tooltip: {
                         itemSort: function(a, b) { return b.parsed.y - a.parsed.y; }
@@ -578,7 +593,7 @@
         .catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
     }
 
-    // --- STANDARD FUNCTIONS (SCAN, SEARCH) ---
+    // --- STANDARD FUNCTIONS ---
     window.processFile = function(input) {
         const f = input.files[0]; if(!f) return;
         document.getElementById('btn-scan').classList.remove('hidden');
