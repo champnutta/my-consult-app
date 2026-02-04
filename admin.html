@@ -25,7 +25,12 @@
         
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="fw-bold text-primary"><i class="bi bi-shield-lock"></i> Admin System</h4>
-            <span id="admin-badge" class="badge bg-secondary">Checking...</span>
+            <div>
+                <button onclick="runMigration()" class="btn btn-outline-warning btn-sm me-2 fw-bold">
+                    <i class="bi bi-tools"></i> Fix DB (Sync Patients)
+                </button>
+                <span id="admin-badge" class="badge bg-secondary">Checking...</span>
+            </div>
         </div>
 
         <div class="filter-box mb-4">
@@ -104,17 +109,22 @@
                             <table id="tbl-act-detail" class="table table-hover align-middle mb-0 d-none"><thead class="table-light"><tr><th class="ps-4">วันที่</th><th>กิจกรรม</th><th>แพทย์</th><th>บทบาท</th></tr></thead><tbody id="tbody-act-detail"></tbody></table>
                         </div>
                     </div>
-                    <div class="card-footer bg-white text-muted small text-end">
-                        * ระบบกรองข้อมูลซ้ำให้แล้ว (นับ 1 ครั้ง/กิจกรรม/วัน)
-                    </div>
+                    <div class="card-footer bg-white text-muted small text-end">* ระบบกรองข้อมูลซ้ำให้แล้ว (นับ 1 ครั้ง/กิจกรรม/วัน)</div>
                 </div>
             </div>
 
             <div class="tab-pane fade" id="trend-pane" role="tabpanel">
                 <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-white fw-bold d-flex justify-content-between">
-                        <span><i class="bi bi-graph-up-arrow"></i> Competitive Graph (Rolling 12 Months)</span>
-                        <button onclick="loadCompetitiveGraph()" class="btn btn-sm btn-outline-secondary">Refresh</button>
+                    <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-graph-up-arrow"></i> Competitive Analysis (Rolling 12M)</span>
+                        <div class="d-flex gap-2">
+                            <select id="graph-metric" class="form-select form-select-sm fw-bold text-primary" style="width:180px;" onchange="renderGraphFromCache()">
+                                <option value="count" selected>Patient Count (จำนวนคน)</option>
+                                <option value="total_score">Total PA Score (คะแนนรวม)</option>
+                                <option value="avg_score">Average PA Score (เฉลี่ย)</option>
+                            </select>
+                            <button onclick="loadCompetitiveGraph()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i></button>
+                        </div>
                     </div>
                     <div class="card-body"><div style="height: 400px;"><canvas id="compChart"></canvas></div></div>
                 </div>
@@ -127,39 +137,21 @@
                             <div class="card-header bg-white fw-bold text-success"><i class="bi bi-person-plus"></i> เพิ่มแพทย์ใหม่</div>
                             <div class="card-body">
                                 <form id="form-add-user">
-                                    <div class="mb-2">
-                                        <label class="small text-muted">User UID</label>
-                                        <input type="text" id="new-uid" class="form-control form-control-sm" required>
-                                    </div>
-                                    <div class="mb-2">
-                                        <label class="small text-muted">ชื่อ-สกุล</label>
-                                        <input type="text" id="new-name" class="form-control form-control-sm" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="small text-muted">แผนก</label>
-                                        <input type="text" id="new-spec" class="form-control form-control-sm" placeholder="Ex. GI, IM" required>
-                                    </div>
+                                    <div class="mb-2"><label class="small text-muted">User UID</label><input type="text" id="new-uid" class="form-control form-control-sm" required></div>
+                                    <div class="mb-2"><label class="small text-muted">ชื่อ-สกุล</label><input type="text" id="new-name" class="form-control form-control-sm" required></div>
+                                    <div class="mb-3"><label class="small text-muted">แผนก</label><input type="text" id="new-spec" class="form-control form-control-sm" placeholder="Ex. GI, IM" required></div>
                                     <button type="submit" class="btn btn-success btn-sm w-100 fw-bold">บันทึกข้อมูล</button>
                                 </form>
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-8">
                         <div class="card shadow-sm border-0">
                             <div class="card-header bg-white fw-bold">รายชื่อแพทย์ในระบบ</div>
                             <div class="card-body p-0">
                                 <div class="table-responsive" style="max-height: 500px;">
                                     <table class="table table-hover align-middle mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th class="ps-3">ชื่อ</th>
-                                                <th>แผนก</th>
-                                                <th>UID (ย่อ)</th>
-                                                <th class="text-end pe-3">จัดการ</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tbody-users"></tbody>
+                                        <thead class="table-light"><tr><th class="ps-3">ชื่อ</th><th>แผนก</th><th>UID (ย่อ)</th><th class="text-end pe-3">จัดการ</th></tr></thead><tbody id="tbody-users"></tbody>
                                     </table>
                                 </div>
                             </div>
@@ -182,6 +174,8 @@
         let currentStats = []; 
         let currentActivities = []; 
         let compChart = null;
+        // 🔥 Cache for Switching Graphs
+        let cachedGraphData = { count: {}, score: {} };
 
         window.onload = async function() {
             renderFilterInputs();
@@ -193,6 +187,24 @@
                 document.getElementById('admin-badge').className = "badge bg-success";
                 loadConfigAndStats();
             } catch(e) { alert("LIFF Error: " + e); }
+        }
+
+        // 🔥 Function: Run Migration (Fix DB)
+        async function runMigration() {
+            if(!confirm("ยืนยันการ Fix Database?\n(ระบบจะอ่าน Log ทั้งหมดแล้วอัปเดตรายชื่อคนไข้ให้ครบทุกคน)")) return;
+            const btn = document.querySelector('button[onclick="runMigration()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "Working..."; btn.disabled = true;
+            try {
+                const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'runFixDatabase', uid: currentAdminUID }) });
+                const r = await res.json();
+                if(r.status === 'success') {
+                    alert(`✅ เสร็จสิ้น!\nProcessed Logs: ${r.processed_logs}\nUpdated Patients: ${r.updated_patients}`);
+                } else {
+                    alert("Error: " + JSON.stringify(r));
+                }
+            } catch(e) { alert("Error: "+e); }
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
 
         function renderFilterInputs() {
@@ -306,20 +318,18 @@
             });
         }
 
-        // 🔥 MODIFIED: Activity Tab with Deduplication
         function renderActivityTab() {
             const viewMode = document.querySelector('input[name="actView"]:checked').value;
             const fDoc = document.getElementById('act-filter-doc').value;
             
-            // 1. First Filter by Doctor
             let rawFiltered = currentActivities.filter(act => fDoc === 'All' || act.doctor === fDoc);
 
-            // 2. Deduplication Logic (Same Doctor + Same Activity + Same Date)
+            // Deduplication Logic
             const uniqueKeys = new Set();
             const uniqueActivities = [];
 
             rawFiltered.forEach(act => {
-                const dateKey = act.date.split('T')[0]; // YYYY-MM-DD
+                const dateKey = act.date.split('T')[0]; 
                 const key = `${act.doctor}|${act.activity}|${dateKey}`;
                 if(!uniqueKeys.has(key)) {
                     uniqueKeys.add(key);
@@ -327,7 +337,6 @@
                 }
             });
 
-            // Use 'uniqueActivities' for display
             document.getElementById('act-total-badge').innerText = `${uniqueActivities.length} รายการ`;
             const tblSummary = document.getElementById('tbl-act-summary');
             const tblDetail = document.getElementById('tbl-act-detail');
@@ -356,29 +365,58 @@
             }
         }
 
+        // 🔥 UPDATED: Load Graph Data + Caching
         async function loadCompetitiveGraph() {
             const today = new Date();
             const lastYear = new Date(); lastYear.setFullYear(today.getFullYear() - 1);
             const s = lastYear.toISOString().split('T')[0] + "T00:00:00";
             const e = today.toISOString().split('T')[0] + "T23:59:59";
+            
             const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${s}&end=${e}`);
             const result = await res.json();
-            renderGraph(result.graph || {});
+            
+            // Cache data from backend (Must match main.py response keys)
+            cachedGraphData.count = result.graph_count || {};
+            cachedGraphData.score = result.graph_score || {};
+            
+            renderGraphFromCache();
         }
 
-        function renderGraph(data) {
-            const ctx = document.getElementById('compChart');
-            const labels = Object.keys(data).sort();
+        // 🔥 NEW: Render based on dropdown
+        function renderGraphFromCache() {
+            const metric = document.getElementById('graph-metric').value; // count, total_score, avg_score
+            const gCount = cachedGraphData.count;
+            const gScore = cachedGraphData.score;
+            
+            const labels = Object.keys(gCount).sort(); 
             const specialties = new Set();
-            Object.values(data).forEach(m => Object.keys(m).forEach(s => specialties.add(s)));
+            Object.values(gCount).forEach(m => Object.keys(m).forEach(s => specialties.add(s)));
             const specsArray = Array.from(specialties);
+
             const datasets = specsArray.map((spec, i) => {
-                const vals = labels.map(lbl => data[lbl][spec] || 0);
+                const vals = labels.map(lbl => {
+                    const c = gCount[lbl][spec] || 0;
+                    const s = gScore[lbl][spec] || 0;
+                    if(metric === 'count') return c;
+                    if(metric === 'total_score') return s;
+                    if(metric === 'avg_score') return c > 0 ? (s/c) : 0;
+                    return 0;
+                });
+                
                 const color = `hsl(${(i * 360) / specsArray.length}, 70%, 50%)`;
                 return { label: spec, data: vals, borderColor: color, backgroundColor: color, tension: 0.3, fill: false };
             });
+
             if(compChart) compChart.destroy();
-            compChart = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, plugins: { tooltip: { itemSort: function(a, b) { return b.parsed.y - a.parsed.y; } } } } });
+            compChart = new Chart(document.getElementById('compChart'), {
+                type: 'line', 
+                data: { labels: labels, datasets: datasets },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { tooltip: { itemSort: function(a, b) { return b.parsed.y - a.parsed.y; } } } 
+                }
+            });
         }
 
         function renderUserTable() {
