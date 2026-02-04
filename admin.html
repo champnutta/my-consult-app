@@ -118,10 +118,11 @@
                     <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
                         <span><i class="bi bi-graph-up-arrow"></i> Competitive Analysis (Rolling 12M)</span>
                         <div class="d-flex gap-2">
-                            <select id="graph-metric" class="form-select form-select-sm fw-bold text-primary" style="width:180px;" onchange="renderGraphFromCache()">
-                                <option value="count" selected>Patient Count (จำนวนคน)</option>
+                            <select id="graph-metric" class="form-select form-select-sm fw-bold text-primary" style="width:220px;" onchange="renderGraphFromCache()">
+                                <option value="count">Patient Count (จำนวนคน)</option>
                                 <option value="total_score">Total PA Score (คะแนนรวม)</option>
-                                <option value="avg_score">Average PA Score (เฉลี่ย)</option>
+                                <option value="avg_complexity">Case Complexity (คะแนน/เคส)</option>
+                                <option value="workload_per_doc">Workload/Doctor (ภาระงาน/คน)</option>
                             </select>
                             <button onclick="loadCompetitiveGraph()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i></button>
                         </div>
@@ -150,9 +151,7 @@
                             <div class="card-header bg-white fw-bold">รายชื่อแพทย์ในระบบ</div>
                             <div class="card-body p-0">
                                 <div class="table-responsive" style="max-height: 500px;">
-                                    <table class="table table-hover align-middle mb-0">
-                                        <thead class="table-light"><tr><th class="ps-3">ชื่อ</th><th>แผนก</th><th>UID (ย่อ)</th><th class="text-end pe-3">จัดการ</th></tr></thead><tbody id="tbody-users"></tbody>
-                                    </table>
+                                    <table class="table table-hover align-middle mb-0"><thead class="table-light"><tr><th class="ps-3">ชื่อ</th><th>แผนก</th><th>UID (ย่อ)</th><th class="text-end pe-3">จัดการ</th></tr></thead><tbody id="tbody-users"></tbody></table>
                                 </div>
                             </div>
                         </div>
@@ -174,8 +173,9 @@
         let currentStats = []; 
         let currentActivities = []; 
         let compChart = null;
-        // 🔥 Cache for Switching Graphs
         let cachedGraphData = { count: {}, score: {} };
+        // 🔥 สำหรับคำนวณ Workload/Doc
+        let deptHeadcounts = {};
 
         window.onload = async function() {
             renderFilterInputs();
@@ -252,22 +252,29 @@
             if(dataConf.error) { alert("Access Denied"); return; }
             doctorsData = dataConf.doctors || [];
             
-            // Sort Doctors
+            // 🔥 Sort & Count Headcounts
+            deptHeadcounts = {};
             doctorsData.sort((a, b) => {
                 const specA = (a.specialties && a.specialties.length > 0) ? a.specialties[0].toString() : 'zzz';
                 const specB = (b.specialties && b.specialties.length > 0) ? b.specialties[0].toString() : 'zzz';
                 return specA.localeCompare(specB) || a.name.localeCompare(b.name);
             });
 
-            // Filters
             const deptSet = new Set();
             const docSel = document.getElementById('act-filter-doc');
             docSel.innerHTML = '<option value="All">แพทย์ทุกคน</option>';
             document.getElementById('filter-dept').innerHTML = '<option value="All">แสดงทุกแผนก</option>';
 
             doctorsData.forEach(d => {
-                if(d.specialties) d.specialties.forEach(s => deptSet.add(s));
                 docSel.innerHTML += `<option value="${d.name}">${d.name}</option>`;
+                if(d.specialties) {
+                    d.specialties.forEach(s => {
+                        deptSet.add(s);
+                        // Count Doctors per Dept
+                        if(!deptHeadcounts[s]) deptHeadcounts[s] = 0;
+                        deptHeadcounts[s]++;
+                    });
+                }
             });
             Array.from(deptSet).sort().forEach(s => document.getElementById('filter-dept').innerHTML += `<option value="${s}">${s}</option>`);
 
@@ -284,6 +291,10 @@
             
             currentStats = result.table || [];
             currentActivities = result.activities || [];
+            
+            // Cache for Graph
+            cachedGraphData.count = result.graph_count || {};
+            cachedGraphData.score = result.graph_score || {};
 
             renderGeneralTabs(); 
             renderActivityTab();
@@ -321,20 +332,14 @@
         function renderActivityTab() {
             const viewMode = document.querySelector('input[name="actView"]:checked').value;
             const fDoc = document.getElementById('act-filter-doc').value;
-            
             let rawFiltered = currentActivities.filter(act => fDoc === 'All' || act.doctor === fDoc);
 
-            // Deduplication Logic
             const uniqueKeys = new Set();
             const uniqueActivities = [];
-
             rawFiltered.forEach(act => {
                 const dateKey = act.date.split('T')[0]; 
                 const key = `${act.doctor}|${act.activity}|${dateKey}`;
-                if(!uniqueKeys.has(key)) {
-                    uniqueKeys.add(key);
-                    uniqueActivities.push(act);
-                }
+                if(!uniqueKeys.has(key)) { uniqueKeys.add(key); uniqueActivities.push(act); }
             });
 
             document.getElementById('act-total-badge').innerText = `${uniqueActivities.length} รายการ`;
@@ -365,7 +370,6 @@
             }
         }
 
-        // 🔥 UPDATED: Load Graph Data + Caching
         async function loadCompetitiveGraph() {
             const today = new Date();
             const lastYear = new Date(); lastYear.setFullYear(today.getFullYear() - 1);
@@ -375,16 +379,15 @@
             const res = await fetch(`${API_URL}?action=getAdminStats&uid=${currentAdminUID}&start=${s}&end=${e}`);
             const result = await res.json();
             
-            // Cache data from backend (Must match main.py response keys)
             cachedGraphData.count = result.graph_count || {};
             cachedGraphData.score = result.graph_score || {};
             
             renderGraphFromCache();
         }
 
-        // 🔥 NEW: Render based on dropdown
+        // 🔥 Updated Graph Rendering with Metrics
         function renderGraphFromCache() {
-            const metric = document.getElementById('graph-metric').value; // count, total_score, avg_score
+            const metric = document.getElementById('graph-metric').value; // count, total_score, avg_complexity, workload_per_doc
             const gCount = cachedGraphData.count;
             const gScore = cachedGraphData.score;
             
@@ -397,9 +400,15 @@
                 const vals = labels.map(lbl => {
                     const c = gCount[lbl][spec] || 0;
                     const s = gScore[lbl][spec] || 0;
+                    
                     if(metric === 'count') return c;
                     if(metric === 'total_score') return s;
-                    if(metric === 'avg_score') return c > 0 ? (s/c) : 0;
+                    if(metric === 'avg_complexity') return c > 0 ? (s/c) : 0; // Old Average (Score per Case)
+                    
+                    if(metric === 'workload_per_doc') {
+                        const nDocs = deptHeadcounts[spec] || 1; // Avoid divide by zero
+                        return (s / nDocs);
+                    }
                     return 0;
                 });
                 
