@@ -609,7 +609,7 @@
         .catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
     }
 
-    // --- STANDARD FUNCTIONS (SCAN, SEARCH) ---
+    // --- STANDARD FUNCTIONS ---
     window.processFile = function(input) {
         const f = input.files[0]; if(!f) return;
         document.getElementById('btn-scan').classList.remove('hidden');
